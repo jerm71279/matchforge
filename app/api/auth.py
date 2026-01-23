@@ -2,10 +2,11 @@
 MatchForge Auth API
 User registration, login, and profile management
 """
-from datetime import timedelta
+from datetime import timedelta, datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+import uuid
 
 from app.core.database import get_db
 from app.core.security import (
@@ -19,11 +20,40 @@ from app.schemas.auth import (
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
+# Demo mode in-memory storage
+_demo_users = {}
+
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     """Register a new user account."""
-    # Check if email exists
+    # Demo mode: use in-memory storage
+    if settings.DEMO_MODE:
+        if user_data.email in _demo_users:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+
+        user_id = str(uuid.uuid4())
+        _demo_users[user_data.email] = {
+            "id": user_id,
+            "email": user_data.email,
+            "full_name": user_data.full_name,
+            "hashed_password": get_password_hash(user_data.password),
+            "is_active": True,
+            "created_at": datetime.utcnow(),
+        }
+
+        return UserResponse(
+            id=user_id,
+            email=user_data.email,
+            full_name=user_data.full_name,
+            is_active=True,
+            created_at=datetime.utcnow(),
+        )
+
+    # Production mode: use database
     result = await db.execute(select(User).where(User.email == user_data.email))
     if result.scalar_one_or_none():
         raise HTTPException(
@@ -50,6 +80,26 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
 @router.post("/login", response_model=Token)
 async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
     """Login and get access token."""
+    # Demo mode: check in-memory storage
+    if settings.DEMO_MODE:
+        user = _demo_users.get(credentials.email)
+
+        if not user or not verify_password(credentials.password, user["hashed_password"]):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        access_token = create_access_token(subject=user["id"])
+
+        return Token(
+            access_token=access_token,
+            token_type="bearer",
+            expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        )
+
+    # Production mode: use database
     result = await db.execute(select(User).where(User.email == credentials.email))
     user = result.scalar_one_or_none()
 
