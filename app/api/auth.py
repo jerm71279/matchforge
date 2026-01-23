@@ -20,8 +20,25 @@ from app.schemas.auth import (
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-# Demo mode in-memory storage
+# Demo mode in-memory storage with pre-seeded demo user
 _demo_users = {}
+
+def _init_demo_users():
+    """Pre-seed demo user for easy testing."""
+    if settings.DEMO_MODE and "demo@matchforge.com" not in _demo_users:
+        _demo_users["demo@matchforge.com"] = {
+            "id": "demo-user-001",
+            "email": "demo@matchforge.com",
+            "full_name": "Demo User",
+            "hashed_password": get_password_hash("DemoPass123"),
+            "is_active": True,
+            "subscription_tier": "free",
+            "coaching_sessions_remaining": 3,
+            "is_verified": True,
+            "created_at": datetime.utcnow(),
+        }
+
+_init_demo_users()
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
