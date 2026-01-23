@@ -26,24 +26,34 @@ Open http://localhost:8001/demo - that's it!
 ### Option 2: Local Python Setup
 
 ```bash
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate   # Windows: venv\Scripts\activate
+
 # Install dependencies
 pip install -r requirements.txt
 
 # Run with demo data (no database needed)
-DEMO_MODE=true uvicorn app.main:app --reload
+DEMO_MODE=true uvicorn app.main:app --port 8001 --reload
 ```
 
-Visit http://localhost:8000/docs for API documentation.
+**Windows users:** See [Team Setup](#team-setup) section for Windows-specific commands.
+
+Visit http://localhost:8001/docs for API documentation.
 
 ### Demo UI
 
+**Linux/Mac:**
 ```bash
-# Start server on port 8001
 DEMO_MODE=true uvicorn app.main:app --port 8001 --reload
-
-# Open in browser
-open http://localhost:8001/demo
 ```
+
+**Windows (PowerShell):**
+```powershell
+$env:DEMO_MODE="true"; uvicorn app.main:app --port 8001 --reload
+```
+
+Then open http://localhost:8001/demo in your browser.
 
 The demo UI includes:
 - **ATS Checker** - Upload resume (PDF/DOCX) and check compatibility
@@ -200,7 +210,10 @@ pytest tests/test_job_fetcher.py -v
 
 ### Manual Testing with Demo UI
 
-1. Start server: `DEMO_MODE=true uvicorn app.main:app --port 8001 --reload`
+1. Start server:
+   - **Linux/Mac:** `DEMO_MODE=true uvicorn app.main:app --port 8001 --reload`
+   - **Windows (PowerShell):** `$env:DEMO_MODE="true"; uvicorn app.main:app --port 8001 --reload`
+   - **Windows (CMD):** `set DEMO_MODE=true && uvicorn app.main:app --port 8001 --reload`
 2. Open http://localhost:8001/demo
 3. Login with demo credentials
 4. Test each feature:
@@ -228,10 +241,22 @@ cd matchforge
 
 ### 2. Create Virtual Environment
 
+**Linux/Mac:**
 ```bash
 python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# or: venv\Scripts\activate  # Windows
+source venv/bin/activate
+```
+
+**Windows (PowerShell):**
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+```
+
+**Windows (CMD):**
+```cmd
+python -m venv venv
+venv\Scripts\activate.bat
 ```
 
 ### 3. Install Dependencies
@@ -242,8 +267,19 @@ pip install -r requirements.txt
 
 ### 4. Run in Demo Mode
 
+**Linux/Mac:**
 ```bash
 DEMO_MODE=true uvicorn app.main:app --port 8001 --reload
+```
+
+**Windows (PowerShell):**
+```powershell
+$env:DEMO_MODE="true"; uvicorn app.main:app --port 8001 --reload
+```
+
+**Windows (CMD):**
+```cmd
+set DEMO_MODE=true && uvicorn app.main:app --port 8001 --reload
 ```
 
 ### 5. Access the Application
