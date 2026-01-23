@@ -12,7 +12,18 @@ AI-Powered Job Matching Platform with Human Coaching
 
 ## Quick Start
 
-### Demo Mode (No external dependencies)
+### Option 1: Docker (Recommended for Teams)
+
+```bash
+# Clone and run with one command
+git clone https://github.com/jerm71279/matchforge.git
+cd matchforge
+docker-compose up
+```
+
+Open http://localhost:8001/demo - that's it!
+
+### Option 2: Local Python Setup
 
 ```bash
 # Install dependencies

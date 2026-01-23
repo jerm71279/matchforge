@@ -1,0 +1,52 @@
+# MatchForge Docker Compose
+# Usage: docker-compose up
+
+version: '3.8'
+
+services:
+  # Main application (demo mode - no external dependencies)
+  app:
+    build: .
+    ports:
+      - "8001:8001"
+    environment:
+      - DEMO_MODE=true
+      - DEBUG=true
+    volumes:
+      # Mount code for live reload during development
+      - .:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+
+  # Optional: Full stack with PostgreSQL and Redis
+  # Uncomment below for production-like setup
+
+  # app-full:
+  #   build: .
+  #   ports:
+  #     - "8001:8001"
+  #   environment:
+  #     - DEMO_MODE=false
+  #     - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/matchforge
+  #     - REDIS_URL=redis://redis:6379/0
+  #   depends_on:
+  #     - db
+  #     - redis
+
+  # db:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     - POSTGRES_USER=postgres
+  #     - POSTGRES_PASSWORD=postgres
+  #     - POSTGRES_DB=matchforge
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+
+# volumes:
+#   postgres_data:
