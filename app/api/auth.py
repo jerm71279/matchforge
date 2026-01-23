@@ -36,21 +36,27 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
             )
 
         user_id = str(uuid.uuid4())
+        now = datetime.utcnow()
         _demo_users[user_data.email] = {
             "id": user_id,
             "email": user_data.email,
             "full_name": user_data.full_name,
             "hashed_password": get_password_hash(user_data.password),
             "is_active": True,
-            "created_at": datetime.utcnow(),
+            "subscription_tier": "free",
+            "coaching_sessions_remaining": 0,
+            "is_verified": False,
+            "created_at": now,
         }
 
         return UserResponse(
             id=user_id,
             email=user_data.email,
             full_name=user_data.full_name,
-            is_active=True,
-            created_at=datetime.utcnow(),
+            subscription_tier="free",
+            coaching_sessions_remaining=0,
+            is_verified=False,
+            created_at=now,
         )
 
     # Production mode: use database
