@@ -24,7 +24,7 @@ class User(Base):
 
     # Subscription
     subscription_tier = Column(String(50), default="free")  # free, basic, professional, premium
-    coaching_sessions_remaining = Column(Integer, default=0)
+    coaching_sessions_remaining = Column(Integer, default=3)  # Demo: start with 3 sessions
 
     # Status
     is_active = Column(Boolean, default=True)

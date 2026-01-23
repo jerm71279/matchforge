@@ -4,6 +4,8 @@ Main FastAPI Application
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from pathlib import Path
 
 from app.core.config import settings
 from app.core.database import init_db
@@ -81,6 +83,7 @@ async def root():
         "version": settings.APP_VERSION,
         "docs": "/docs",
         "health": "/health",
+        "demo": "/demo",
         "api_prefix": settings.API_V1_PREFIX,
         "endpoints": {
             "auth": f"{settings.API_V1_PREFIX}/auth",
@@ -89,6 +92,15 @@ async def root():
             "coaching": f"{settings.API_V1_PREFIX}/coaching",
         }
     }
+
+
+@app.get("/demo")
+async def demo_page():
+    """Serve the demo HTML page for ATS resume checking."""
+    demo_path = Path(__file__).parent.parent / "demo.html"
+    if demo_path.exists():
+        return FileResponse(demo_path, media_type="text/html")
+    return {"error": "Demo page not found"}
 
 
 if __name__ == "__main__":

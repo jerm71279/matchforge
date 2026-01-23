@@ -7,10 +7,11 @@ This module provides endpoints for:
 - ATS compatibility checking for top 10 systems
 - Saving jobs and searches
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
+import io
 
 from app.core.database import get_db
 from app.core.security import get_current_user_id
@@ -23,6 +24,30 @@ from app.schemas.job import (
 from app.services.job_fetcher import JobFetcher
 from app.services.job_matcher import JobMatcher
 from app.services.ats_checker import ATSChecker
+
+
+def extract_text_from_pdf(file_content: bytes) -> str:
+    """Extract text from PDF file."""
+    try:
+        from PyPDF2 import PdfReader
+        pdf = PdfReader(io.BytesIO(file_content))
+        text = ""
+        for page in pdf.pages:
+            text += page.extract_text() or ""
+        return text.strip()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not parse PDF: {str(e)}")
+
+
+def extract_text_from_docx(file_content: bytes) -> str:
+    """Extract text from DOCX file."""
+    try:
+        from docx import Document
+        doc = Document(io.BytesIO(file_content))
+        text = "\n".join([para.text for para in doc.paragraphs])
+        return text.strip()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not parse DOCX: {str(e)}")
 
 router = APIRouter(
     prefix="/jobs",
@@ -276,6 +301,95 @@ async def check_ats_compatibility(
         issues=issues if isinstance(issues, list) else issues,
         suggestions=suggestions,
         target_ats=request.target_ats,
+        parser_group=parser_group,
+        market_coverage=market_coverage
+    )
+
+
+@router.post(
+    "/resume-check",
+    response_model=ATSCheckResult,
+    summary="Upload Resume for ATS Check",
+    description="""
+    Upload a resume file (PDF or DOCX) and check ATS compatibility.
+
+    **Supported formats:**
+    - PDF (.pdf)
+    - Microsoft Word (.docx)
+
+    The resume text is extracted automatically and scored against the selected ATS system.
+    """
+)
+async def upload_resume_for_ats_check(
+    file: UploadFile = File(..., description="Resume file (PDF or DOCX)"),
+    target_ats: Optional[str] = Form("icims", description="Target ATS system"),
+    job_description: Optional[str] = Form(None, description="Optional job description for keyword matching"),
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Upload resume and check ATS compatibility.
+
+    Accepts PDF or DOCX files, extracts text, and runs ATS validation.
+    """
+    # Validate file type
+    filename = file.filename.lower()
+    if not (filename.endswith('.pdf') or filename.endswith('.docx')):
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file format. Please upload PDF or DOCX."
+        )
+
+    # Read file content
+    content = await file.read()
+
+    # Extract text based on file type
+    if filename.endswith('.pdf'):
+        resume_text = extract_text_from_pdf(content)
+        resume_format = "pdf"
+    else:
+        resume_text = extract_text_from_docx(content)
+        resume_format = "docx"
+
+    if not resume_text or len(resume_text) < 50:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not extract sufficient text from resume. Please check the file."
+        )
+
+    # Run ATS check
+    checker = ATSChecker()
+
+    if target_ats:
+        result = checker.check_for_ats(resume_text, resume_format, target_ats)
+
+        if "error" in result:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown ATS: {target_ats}. Supported: {result['supported_systems']}"
+            )
+
+        issues = result["issues"]
+        score = result["score"]
+        parser_group = result.get("parser_group")
+        market_coverage = result.get("market_share")
+    else:
+        issues_list = checker.check_resume(resume_text, resume_format)
+        issues = [issue.to_dict() for issue in issues_list]
+        score = checker.compute_ats_score(issues_list)
+        parser_group = None
+        market_coverage = None
+
+    # Get keyword suggestions if job description provided
+    suggestions = []
+    if job_description:
+        keywords = checker.suggest_keywords(resume_text, job_description)
+        suggestions = [f"Add '{k['keyword']}' ({k['importance']} priority)" for k in keywords]
+
+    return ATSCheckResult(
+        overall_score=score,
+        issues=issues,
+        suggestions=suggestions,
+        target_ats=target_ats,
         parser_group=parser_group,
         market_coverage=market_coverage
     )

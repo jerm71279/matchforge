@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MatchForge - AI Job Matching Platform</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle { text-align: center; color: #888; margin-bottom: 30px; }
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        .nav-tab {
+            padding: 10px 24px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #888;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .nav-tab:hover { background: rgba(255,255,255,0.15); }
+        .nav-tab.active {
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            color: #fff;
+            border-color: transparent;
+        }
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .card h2 { margin-bottom: 20px; font-size: 1.3rem; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #aaa; font-size: 0.9rem; }
+        input[type="text"], input[type="email"], input[type="password"], input[type="file"], select, textarea {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            font-size: 1rem;
+        }
+        input[type="checkbox"] { width: auto; margin-right: 8px; }
+        select option { background: #1a1a2e; }
+        textarea { min-height: 100px; resize: vertical; }
+        .btn {
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            color: #fff;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,212,255,0.3); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        .btn-secondary:hover { background: rgba(255,255,255,0.2); box-shadow: none; }
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            width: auto;
+        }
+        .btn-row { display: flex; gap: 10px; margin-top: 20px; }
+        .btn-row .btn { flex: 1; }
+        .score-circle {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px auto;
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        .score-high { background: linear-gradient(135deg, #00c853, #00e676); }
+        .score-medium { background: linear-gradient(135deg, #ffc107, #ffca28); color: #000; }
+        .score-low { background: linear-gradient(135deg, #ff5252, #ff1744); }
+        .result-section { margin-top: 20px; }
+        .result-section h3 { margin-bottom: 10px; font-size: 1rem; color: #00d4ff; }
+        .issue {
+            background: rgba(255,255,255,0.05);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border-left: 3px solid;
+        }
+        .issue.error { border-color: #ff5252; }
+        .issue.warning { border-color: #ffc107; }
+        .issue.info { border-color: #00d4ff; }
+        .issue-severity { font-size: 0.8rem; text-transform: uppercase; opacity: 0.7; }
+        .issue-message { margin-top: 4px; }
+        .issue-suggestion { font-size: 0.85rem; color: #888; margin-top: 4px; }
+        .meta-info { display: flex; gap: 20px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
+        .meta-item { text-align: center; }
+        .meta-label { font-size: 0.8rem; color: #888; }
+        .meta-value { font-size: 1.1rem; font-weight: 600; }
+        .hidden { display: none !important; }
+        .loading { text-align: center; padding: 40px; }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .login-form { max-width: 400px; margin: 0 auto; }
+        .error-msg { background: rgba(255,82,82,0.2); padding: 12px; border-radius: 8px; margin-bottom: 20px; }
+        .success-msg { background: rgba(0,200,83,0.2); padding: 12px; border-radius: 8px; margin-bottom: 20px; }
+
+        /* Job Cards */
+        .job-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .job-card:hover {
+            transform: translateX(5px);
+            border-color: rgba(0,212,255,0.3);
+        }
+        .job-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        .job-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #fff;
+        }
+        .job-match {
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .job-company {
+            color: #00d4ff;
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+        }
+        .job-meta {
+            display: flex;
+            gap: 15px;
+            color: #888;
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .job-meta span { display: flex; align-items: center; gap: 5px; }
+        .job-skills {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .skill-tag {
+            background: rgba(0,212,255,0.2);
+            color: #00d4ff;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+        .job-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        .remote-badge {
+            background: rgba(0,200,83,0.2);
+            color: #00e676;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+        .search-row {
+            display: flex;
+            gap: 10px;
+        }
+        .search-row input { flex: 1; }
+        .search-row .btn { width: auto; }
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-row label {
+            display: flex;
+            align-items: center;
+            margin: 0;
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .results-count { color: #888; }
+
+        /* Job Source Selector */
+        .source-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .source-selector label {
+            margin: 0;
+            color: #aaa;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+        .source-selector select {
+            width: auto;
+            min-width: 200px;
+        }
+
+        /* Coaching Styles */
+        .coach-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .coach-grid { grid-template-columns: 1fr; }
+        }
+        .session-card {
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .session-coach {
+            font-weight: 600;
+            color: #00d4ff;
+        }
+        .session-status {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+        }
+        .session-status.scheduled { background: rgba(0,200,83,0.2); color: #00e676; }
+        .session-status.completed { background: rgba(136,136,136,0.2); color: #888; }
+        .session-status.cancelled { background: rgba(255,82,82,0.2); color: #ff5252; }
+        .session-time {
+            color: #aaa;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+        .session-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .slot-picker {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 10px 0;
+        }
+        .slot-item {
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .slot-item:hover {
+            background: rgba(0,212,255,0.1);
+            border-color: rgba(0,212,255,0.3);
+        }
+        .slot-item.selected {
+            background: rgba(0,212,255,0.2);
+            border-color: #00d4ff;
+        }
+        .slot-date { font-weight: 600; color: #fff; }
+        .slot-time { font-size: 0.85rem; color: #aaa; }
+        .slot-coach { font-size: 0.8rem; color: #00d4ff; margin-top: 4px; }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+
+        /* Chat Modal */
+        .chat-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .chat-container {
+            width: 90%;
+            max-width: 600px;
+            height: 80vh;
+            background: #1a1a2e;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .chat-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chat-title { font-weight: 600; }
+        .chat-status {
+            font-size: 0.8rem;
+            padding: 4px 10px;
+            border-radius: 12px;
+        }
+        .chat-status.connected { background: rgba(0,200,83,0.2); color: #00e676; }
+        .chat-status.disconnected { background: rgba(255,82,82,0.2); color: #ff5252; }
+        .chat-status.connecting { background: rgba(255,193,7,0.2); color: #ffc107; }
+        .chat-close {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0 5px;
+        }
+        .chat-close:hover { color: #fff; }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .chat-message {
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 12px;
+            word-wrap: break-word;
+        }
+        .chat-message.user {
+            align-self: flex-end;
+            background: linear-gradient(90deg, #00d4ff, #7b2cbf);
+        }
+        .chat-message.coach {
+            align-self: flex-start;
+            background: rgba(255,255,255,0.1);
+        }
+        .chat-message.system {
+            align-self: center;
+            background: rgba(255,193,7,0.2);
+            color: #ffc107;
+            font-size: 0.85rem;
+        }
+        .message-sender {
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 4px;
+        }
+        .message-time {
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.4);
+            margin-top: 4px;
+            text-align: right;
+        }
+        .typing-indicator {
+            align-self: flex-start;
+            color: #888;
+            font-size: 0.85rem;
+            font-style: italic;
+            padding: 10px;
+        }
+        .chat-input-area {
+            padding: 15px 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            gap: 10px;
+        }
+        .chat-input-area input {
+            flex: 1;
+        }
+        .chat-input-area .btn {
+            width: auto;
+            padding: 12px 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>MatchForge</h1>
+        <p class="subtitle">AI-Powered Job Matching Platform</p>
+
+        <!-- Login Section -->
+        <div id="login-section" class="card login-form">
+            <h2>Login or Register</h2>
+            <div id="login-error" class="error-msg hidden"></div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="email" value="demo@matchforge.com">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="password" value="DemoPass123">
+            </div>
+            <button class="btn" onclick="login()">Login / Register</button>
+        </div>
+
+        <!-- Main App (hidden until logged in) -->
+        <div id="main-app" class="hidden">
+            <!-- Navigation Tabs -->
+            <div class="nav-tabs">
+                <div class="nav-tab active" onclick="showTab('ats')">ATS Checker</div>
+                <div class="nav-tab" onclick="showTab('jobs')">Find Jobs</div>
+                <div class="nav-tab" onclick="showTab('coaching')">Coaching</div>
+            </div>
+
+            <!-- ATS Checker Tab -->
+            <div id="tab-ats">
+                <div id="upload-section" class="card">
+                    <h2>Check Your Resume</h2>
+                    <div class="form-group">
+                        <label>Resume File (PDF or DOCX)</label>
+                        <input type="file" id="resume-file" accept=".pdf,.docx">
+                    </div>
+                    <div class="form-group">
+                        <label>Target ATS System</label>
+                        <select id="target-ats">
+                            <option value="icims">iCIMS (10.7% market share - Legacy)</option>
+                            <option value="greenhouse">Greenhouse (6-7% - Modern Cloud)</option>
+                            <option value="workday">Workday (7-8% - HCM Integrated)</option>
+                            <option value="taleo">Oracle Taleo (8-9% - Legacy)</option>
+                            <option value="lever">Lever (4-5% - Modern Cloud)</option>
+                            <option value="bullhorn">Bullhorn (2-3% - Staffing)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Job Description (optional - for keyword matching)</label>
+                        <textarea id="job-description" placeholder="Paste the job description here to get keyword suggestions..."></textarea>
+                    </div>
+                    <button class="btn" onclick="checkResume()">Check ATS Compatibility</button>
+                </div>
+
+                <!-- Loading -->
+                <div id="loading-section" class="card hidden">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Analyzing your resume...</p>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results-section" class="card hidden">
+                    <h2>ATS Compatibility Results</h2>
+
+                    <div class="meta-info">
+                        <div class="meta-item">
+                            <div class="meta-label">Target ATS</div>
+                            <div class="meta-value" id="result-ats">-</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">Parser Group</div>
+                            <div class="meta-value" id="result-group">-</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">Market Coverage</div>
+                            <div class="meta-value" id="result-coverage">-</div>
+                        </div>
+                    </div>
+
+                    <div id="score-display"></div>
+
+                    <div id="issues-section" class="result-section"></div>
+                    <div id="suggestions-section" class="result-section"></div>
+
+                    <div class="btn-row">
+                        <button class="btn btn-secondary" onclick="resetAtsForm()">Check Another</button>
+                        <button class="btn" onclick="showTab('jobs')">Find Matching Jobs</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Jobs Tab -->
+            <div id="tab-jobs" class="hidden">
+                <div class="card">
+                    <h2>Search Jobs</h2>
+                    <div class="source-selector">
+                        <label>Job Source:</label>
+                        <select id="job-sources">
+                            <option value="demo">Demo Jobs (50 samples)</option>
+                            <option value="themuse">The Muse (Tech/Startups - No API key needed)</option>
+                            <option value="usajobs">USAJobs (Government - Requires API key)</option>
+                            <option value="adzuna">Adzuna (Global - Requires API key)</option>
+                            <option value="all">All Sources</option>
+                        </select>
+                    </div>
+                    <div class="search-row">
+                        <input type="text" id="job-keywords" placeholder="Keywords (e.g., Python, DevOps, Security)">
+                        <button class="btn" onclick="searchJobs()">Search</button>
+                    </div>
+                    <div class="filter-row">
+                        <label>
+                            <input type="checkbox" id="remote-only"> Remote Only
+                        </label>
+                        <label>
+                            Location:
+                            <input type="text" id="job-location" placeholder="Any" style="width: 150px; margin-left: 8px;">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Job Loading -->
+                <div id="jobs-loading" class="card hidden">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Finding matching jobs...</p>
+                    </div>
+                </div>
+
+                <!-- Job Results -->
+                <div id="jobs-results" class="hidden">
+                    <div class="results-header">
+                        <h2>Matching Jobs</h2>
+                        <span class="results-count" id="jobs-count">0 jobs found</span>
+                    </div>
+                    <div id="jobs-list"></div>
+                </div>
+            </div>
+
+            <!-- Coaching Tab -->
+            <div id="tab-coaching" class="hidden">
+                <div class="coach-grid">
+                    <!-- Book Session Card -->
+                    <div class="card">
+                        <h2>Book a Session</h2>
+                        <div class="form-group">
+                            <label>Session Type</label>
+                            <select id="session-type">
+                                <option value="chat">Chat Session (30 min)</option>
+                                <option value="video" disabled>Video Call (Coming Soon)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Select Available Slot</label>
+                            <div id="slots-loading" class="loading">
+                                <div class="spinner"></div>
+                                <p>Loading available slots...</p>
+                            </div>
+                            <div id="slots-container" class="slot-picker hidden"></div>
+                        </div>
+                        <button id="book-btn" class="btn" onclick="bookSession()" disabled>Select a Slot to Book</button>
+                    </div>
+
+                    <!-- My Sessions Card -->
+                    <div class="card">
+                        <h2>My Sessions</h2>
+                        <div id="sessions-loading" class="loading">
+                            <div class="spinner"></div>
+                            <p>Loading sessions...</p>
+                        </div>
+                        <div id="sessions-list" class="hidden"></div>
+                        <div id="sessions-empty" class="empty-state hidden">
+                            <p>No sessions booked yet.</p>
+                            <p style="font-size: 0.9rem; margin-top: 10px;">Book your first coaching session to get personalized career advice!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Modal -->
+        <div id="chat-modal" class="chat-modal hidden">
+            <div class="chat-container">
+                <div class="chat-header">
+                    <div>
+                        <div class="chat-title" id="chat-title">Coach Chat</div>
+                        <div class="chat-status connecting" id="chat-status">Connecting...</div>
+                    </div>
+                    <button class="chat-close" onclick="closeChat()">&times;</button>
+                </div>
+                <div class="chat-messages" id="chat-messages"></div>
+                <div class="typing-indicator hidden" id="typing-indicator">Coach is typing...</div>
+                <div class="chat-input-area">
+                    <input type="text" id="chat-input" placeholder="Type a message..." onkeypress="handleChatKeypress(event)">
+                    <button class="btn" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8001/api/v1';
+        const WS_BASE = 'ws://localhost:8001/api/v1';
+        let authToken = null;
+        let currentUserId = null;
+        let selectedSlot = null;
+        let chatSocket = null;
+        let currentSessionId = null;
+
+        // Force correct initial state on page load
+        (function initPage() {
+            document.getElementById('login-section').classList.remove('hidden');
+            document.getElementById('main-app').classList.add('hidden');
+            document.getElementById('chat-modal').classList.add('hidden');
+            if (chatSocket) { chatSocket.close(); chatSocket = null; }
+        })();
+
+        function showTab(tab) {
+            // Update nav
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.nav-tab[onclick="showTab('${tab}')"]`).classList.add('active');
+
+            // Show/hide tabs
+            document.getElementById('tab-ats').classList.toggle('hidden', tab !== 'ats');
+            document.getElementById('tab-jobs').classList.toggle('hidden', tab !== 'jobs');
+            document.getElementById('tab-coaching').classList.toggle('hidden', tab !== 'coaching');
+
+            // Load coaching data when tab is shown
+            if (tab === 'coaching') {
+                loadAvailableSlots();
+                loadMySessions();
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('login-error');
+
+            // Try to register first
+            try {
+                await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, full_name: 'Demo User' })
+                });
+            } catch (e) {}
+
+            // Then login
+            try {
+                const res = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    authToken = data.access_token;
+                    currentUserId = data.user_id || email.replace('@', '_').replace('.', '_');
+                    document.getElementById('login-section').classList.add('hidden');
+                    document.getElementById('main-app').classList.remove('hidden');
+                    errorDiv.classList.add('hidden');
+                } else {
+                    const err = await res.json();
+                    errorDiv.textContent = err.detail || 'Login failed';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (e) {
+                errorDiv.textContent = 'Connection error. Is the server running on port 8001?';
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        async function checkResume() {
+            const fileInput = document.getElementById('resume-file');
+            const targetAts = document.getElementById('target-ats').value;
+            const jobDesc = document.getElementById('job-description').value;
+
+            if (!fileInput.files[0]) {
+                alert('Please select a resume file');
+                return;
+            }
+
+            document.getElementById('upload-section').classList.add('hidden');
+            document.getElementById('loading-section').classList.remove('hidden');
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('target_ats', targetAts);
+            if (jobDesc) formData.append('job_description', jobDesc);
+
+            try {
+                const res = await fetch(`${API_BASE}/jobs/resume-check`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` },
+                    body: formData
+                });
+
+                document.getElementById('loading-section').classList.add('hidden');
+
+                if (res.ok) {
+                    const data = await res.json();
+                    showAtsResults(data);
+                } else {
+                    const err = await res.json();
+                    alert('Error: ' + (err.detail || 'Check failed'));
+                    document.getElementById('upload-section').classList.remove('hidden');
+                }
+            } catch (e) {
+                document.getElementById('loading-section').classList.add('hidden');
+                document.getElementById('upload-section').classList.remove('hidden');
+                alert('Connection error: ' + e.message);
+            }
+        }
+
+        function showAtsResults(data) {
+            document.getElementById('results-section').classList.remove('hidden');
+
+            // Meta info
+            document.getElementById('result-ats').textContent = (data.target_ats || 'General').toUpperCase();
+            document.getElementById('result-group').textContent = data.parser_group || 'N/A';
+            document.getElementById('result-coverage').textContent = data.market_coverage || 'N/A';
+
+            // Score circle
+            const score = data.overall_score;
+            let scoreClass = 'score-low';
+            if (score >= 80) scoreClass = 'score-high';
+            else if (score >= 60) scoreClass = 'score-medium';
+
+            document.getElementById('score-display').innerHTML = `
+                <div class="score-circle ${scoreClass}">${score}</div>
+                <p style="text-align: center; color: #888;">out of 100</p>
+            `;
+
+            // Issues
+            const issuesHtml = data.issues.map(issue => `
+                <div class="issue ${issue.severity}">
+                    <div class="issue-severity">${issue.severity}</div>
+                    <div class="issue-message">${issue.message}</div>
+                    <div class="issue-suggestion">${issue.suggestion}</div>
+                </div>
+            `).join('');
+
+            document.getElementById('issues-section').innerHTML = `
+                <h3>Issues Found (${data.issues.length})</h3>
+                ${issuesHtml || '<p style="color:#888">No issues found!</p>'}
+            `;
+
+            // Suggestions
+            if (data.suggestions && data.suggestions.length > 0) {
+                document.getElementById('suggestions-section').innerHTML = `
+                    <h3>Keyword Suggestions</h3>
+                    ${data.suggestions.map(s => `<div class="issue info"><div class="issue-message">${s}</div></div>`).join('')}
+                `;
+            } else {
+                document.getElementById('suggestions-section').innerHTML = '';
+            }
+        }
+
+        function resetAtsForm() {
+            document.getElementById('results-section').classList.add('hidden');
+            document.getElementById('upload-section').classList.remove('hidden');
+            document.getElementById('resume-file').value = '';
+            document.getElementById('job-description').value = '';
+        }
+
+        async function searchJobs() {
+            const keywords = document.getElementById('job-keywords').value || 'Python';
+            const remoteOnly = document.getElementById('remote-only').checked;
+            const location = document.getElementById('job-location').value;
+            const sourceSelect = document.getElementById('job-sources').value;
+
+            // Determine which sources to use
+            let sources;
+            if (sourceSelect === 'all') {
+                sources = ['demo', 'themuse', 'usajobs', 'adzuna'];
+            } else {
+                sources = [sourceSelect];
+            }
+
+            document.getElementById('jobs-loading').classList.remove('hidden');
+            document.getElementById('jobs-results').classList.add('hidden');
+
+            try {
+                const res = await fetch(`${API_BASE}/jobs/search`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        keywords,
+                        remote_only: remoteOnly,
+                        location: location || null,
+                        sources: sources,
+                        page_size: 10
+                    })
+                });
+
+                document.getElementById('jobs-loading').classList.add('hidden');
+
+                if (res.ok) {
+                    const data = await res.json();
+                    showJobResults(data);
+                } else {
+                    const err = await res.json();
+                    alert('Error: ' + (err.detail || 'Search failed'));
+                }
+            } catch (e) {
+                document.getElementById('jobs-loading').classList.add('hidden');
+                alert('Connection error: ' + e.message);
+            }
+        }
+
+        function showJobResults(data) {
+            document.getElementById('jobs-results').classList.remove('hidden');
+            document.getElementById('jobs-count').textContent = `${data.total} jobs found`;
+
+            const jobsHtml = data.jobs.map(match => {
+                const job = match.job;
+                const score = match.match_scores?.total_score || 0;
+                const skills = job.required_skills?.slice(0, 4) || [];
+                const salary = job.salary_min && job.salary_max
+                    ? `$${(job.salary_min/1000).toFixed(0)}k - $${(job.salary_max/1000).toFixed(0)}k`
+                    : '';
+
+                return `
+                    <div class="job-card">
+                        <div class="job-header">
+                            <div class="job-title">${job.title}</div>
+                            <div class="job-match">${score}% Match</div>
+                        </div>
+                        <div class="job-company">${job.company || 'Company'}</div>
+                        <div class="job-meta">
+                            <span>${job.location || 'Location not specified'}</span>
+                            ${job.is_remote ? '<span class="remote-badge">Remote</span>' : ''}
+                            ${salary ? `<span>${salary}</span>` : ''}
+                        </div>
+                        <div class="job-skills">
+                            ${skills.map(s => `<span class="skill-tag">${s}</span>`).join('')}
+                        </div>
+                        <div class="job-actions">
+                            <button class="btn btn-secondary btn-small" onclick="saveJob('${job.id}')">Save</button>
+                            <button class="btn btn-small" onclick="applyJob('${job.id}', '${job.source_url || ''}')">Apply Now</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('jobs-list').innerHTML = jobsHtml || '<p style="color:#888; text-align:center; padding:40px;">No jobs found. Try different keywords.</p>';
+        }
+
+        async function saveJob(jobId) {
+            try {
+                await fetch(`${API_BASE}/jobs/${jobId}/save`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                alert('Job saved!');
+            } catch (e) {
+                alert('Could not save job');
+            }
+        }
+
+        function applyJob(jobId, sourceUrl) {
+            if (sourceUrl) {
+                window.open(sourceUrl, '_blank');
+            } else {
+                alert('Application link not available for demo jobs. In production, this would redirect to the job posting.');
+            }
+        }
+
+        // ==================== COACHING FUNCTIONS ====================
+
+        async function loadAvailableSlots() {
+            document.getElementById('slots-loading').classList.remove('hidden');
+            document.getElementById('slots-container').classList.add('hidden');
+
+            try {
+                const res = await fetch(`${API_BASE}/coaching/slots?days_ahead=14`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                document.getElementById('slots-loading').classList.add('hidden');
+
+                if (res.ok) {
+                    const data = await res.json();
+                    renderSlots(data.slots);
+                } else {
+                    document.getElementById('slots-container').innerHTML = '<p style="color:#888">Could not load slots</p>';
+                    document.getElementById('slots-container').classList.remove('hidden');
+                }
+            } catch (e) {
+                document.getElementById('slots-loading').classList.add('hidden');
+                document.getElementById('slots-container').innerHTML = '<p style="color:#ff5252">Connection error</p>';
+                document.getElementById('slots-container').classList.remove('hidden');
+            }
+        }
+
+        function renderSlots(slots) {
+            const container = document.getElementById('slots-container');
+
+            if (!slots || slots.length === 0) {
+                container.innerHTML = '<p style="color:#888">No available slots. Check back later!</p>';
+                container.classList.remove('hidden');
+                return;
+            }
+
+            // Group slots by date for better display
+            const slotsByDate = {};
+            slots.slice(0, 30).forEach(slot => {
+                const date = new Date(slot.start_time);
+                const dateKey = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                if (!slotsByDate[dateKey]) slotsByDate[dateKey] = [];
+                slotsByDate[dateKey].push(slot);
+            });
+
+            let html = '';
+            for (const [date, dateSlots] of Object.entries(slotsByDate)) {
+                dateSlots.forEach(slot => {
+                    const time = new Date(slot.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                    html += `
+                        <div class="slot-item" onclick="selectSlot(this, '${slot.coach_id}', '${slot.start_time}', '${slot.coach_name}')">
+                            <div class="slot-date">${date}</div>
+                            <div class="slot-time">${time}</div>
+                            <div class="slot-coach">${slot.coach_name}</div>
+                        </div>
+                    `;
+                });
+            }
+
+            container.innerHTML = html;
+            container.classList.remove('hidden');
+        }
+
+        function selectSlot(element, coachId, startTime, coachName) {
+            // Remove selection from all
+            document.querySelectorAll('.slot-item').forEach(el => el.classList.remove('selected'));
+            // Select this one
+            element.classList.add('selected');
+
+            selectedSlot = { coachId, startTime, coachName };
+
+            const btn = document.getElementById('book-btn');
+            btn.disabled = false;
+            btn.textContent = `Book with ${coachName}`;
+        }
+
+        async function bookSession() {
+            if (!selectedSlot) {
+                alert('Please select a slot first');
+                return;
+            }
+
+            const sessionType = document.getElementById('session-type').value;
+            const btn = document.getElementById('book-btn');
+            btn.disabled = true;
+            btn.textContent = 'Booking...';
+
+            try {
+                const res = await fetch(`${API_BASE}/coaching/book`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        coach_id: selectedSlot.coachId,
+                        scheduled_start: selectedSlot.startTime,
+                        session_type: sessionType
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    alert(`Session booked with ${selectedSlot.coachName}!`);
+                    selectedSlot = null;
+                    btn.textContent = 'Select a Slot to Book';
+                    loadAvailableSlots();
+                    loadMySessions();
+                } else {
+                    const err = await res.json();
+                    alert('Error: ' + (err.detail || 'Could not book session'));
+                    btn.disabled = false;
+                    btn.textContent = `Book with ${selectedSlot.coachName}`;
+                }
+            } catch (e) {
+                alert('Connection error: ' + e.message);
+                btn.disabled = false;
+                btn.textContent = `Book with ${selectedSlot.coachName}`;
+            }
+        }
+
+        async function loadMySessions() {
+            document.getElementById('sessions-loading').classList.remove('hidden');
+            document.getElementById('sessions-list').classList.add('hidden');
+            document.getElementById('sessions-empty').classList.add('hidden');
+
+            try {
+                const res = await fetch(`${API_BASE}/coaching/sessions`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                document.getElementById('sessions-loading').classList.add('hidden');
+
+                if (res.ok) {
+                    const sessions = await res.json();
+                    renderSessions(sessions);
+                } else {
+                    document.getElementById('sessions-empty').classList.remove('hidden');
+                }
+            } catch (e) {
+                document.getElementById('sessions-loading').classList.add('hidden');
+                document.getElementById('sessions-list').innerHTML = '<p style="color:#ff5252">Could not load sessions</p>';
+                document.getElementById('sessions-list').classList.remove('hidden');
+            }
+        }
+
+        function renderSessions(sessions) {
+            const container = document.getElementById('sessions-list');
+
+            if (!sessions || sessions.length === 0) {
+                document.getElementById('sessions-empty').classList.remove('hidden');
+                return;
+            }
+
+            let html = '';
+            sessions.forEach(session => {
+                const startDate = new Date(session.scheduled_start);
+                const dateStr = startDate.toLocaleDateString('en-US', {
+                    weekday: 'short', month: 'short', day: 'numeric'
+                });
+                const timeStr = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+                const canJoin = session.status === 'scheduled';
+                const canCancel = session.status === 'scheduled';
+                const hoursUntil = (startDate - new Date()) / (1000 * 60 * 60);
+
+                // Generate session ID for chat
+                const sessionId = session.join_url ? session.join_url.replace('/chat/', '') :
+                    `${session.user_id}_${session.coach_id}_${Math.floor(startDate.getTime() / 1000)}`;
+
+                html += `
+                    <div class="session-card">
+                        <div class="session-header">
+                            <span class="session-coach">Coach: ${session.coach_id}</span>
+                            <span class="session-status ${session.status}">${session.status}</span>
+                        </div>
+                        <div class="session-time">${dateStr} at ${timeStr} (${session.session_type})</div>
+                        <div class="session-actions">
+                            ${canJoin ? `<button class="btn btn-small" onclick="openChat('${sessionId}', '${session.coach_id}')">Join Chat</button>` : ''}
+                            ${canCancel ? `<button class="btn btn-secondary btn-small" onclick="cancelSession('${session.id}')">${hoursUntil >= 24 ? 'Cancel (Refund)' : 'Cancel'}</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            container.classList.remove('hidden');
+        }
+
+        async function cancelSession(sessionId) {
+            if (!confirm('Are you sure you want to cancel this session?')) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/coaching/sessions/${sessionId}/cancel`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    alert(data.message);
+                    loadMySessions();
+                    loadAvailableSlots();
+                } else {
+                    const err = await res.json();
+                    alert('Error: ' + (err.detail || 'Could not cancel session'));
+                }
+            } catch (e) {
+                alert('Connection error: ' + e.message);
+            }
+        }
+
+        // ==================== CHAT FUNCTIONS ====================
+
+        function openChat(sessionId, coachId) {
+            currentSessionId = sessionId;
+            document.getElementById('chat-modal').classList.remove('hidden');
+            document.getElementById('chat-title').textContent = `Chat with ${coachId}`;
+            document.getElementById('chat-messages').innerHTML = '';
+            document.getElementById('chat-input').value = '';
+
+            connectWebSocket(sessionId);
+        }
+
+        function closeChat() {
+            document.getElementById('chat-modal').classList.add('hidden');
+            if (chatSocket) {
+                chatSocket.close();
+                chatSocket = null;
+            }
+            currentSessionId = null;
+        }
+
+        function connectWebSocket(sessionId) {
+            const statusEl = document.getElementById('chat-status');
+            statusEl.textContent = 'Connecting...';
+            statusEl.className = 'chat-status connecting';
+
+            chatSocket = new WebSocket(`${WS_BASE}/coaching/chat/${sessionId}`);
+
+            chatSocket.onopen = () => {
+                statusEl.textContent = 'Connected';
+                statusEl.className = 'chat-status connected';
+            };
+
+            chatSocket.onclose = () => {
+                statusEl.textContent = 'Disconnected';
+                statusEl.className = 'chat-status disconnected';
+            };
+
+            chatSocket.onerror = (error) => {
+                statusEl.textContent = 'Connection Error';
+                statusEl.className = 'chat-status disconnected';
+                console.error('WebSocket error:', error);
+            };
+
+            chatSocket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleChatMessage(data);
+            };
+        }
+
+        function handleChatMessage(data) {
+            const messagesEl = document.getElementById('chat-messages');
+            const typingEl = document.getElementById('typing-indicator');
+
+            switch (data.type) {
+                case 'connected':
+                    addSystemMessage('Connected to chat session');
+                    break;
+
+                case 'history':
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach(msg => {
+                            if (msg.type === 'message') {
+                                addChatMessage(msg);
+                            }
+                        });
+                    }
+                    break;
+
+                case 'message':
+                    addChatMessage(data);
+                    break;
+
+                case 'typing':
+                    if (data.sender_type === 'coach' && data.is_typing) {
+                        typingEl.classList.remove('hidden');
+                    } else {
+                        typingEl.classList.add('hidden');
+                    }
+                    break;
+
+                case 'system':
+                    addSystemMessage(data.content);
+                    break;
+            }
+        }
+
+        function addChatMessage(msg) {
+            const messagesEl = document.getElementById('chat-messages');
+            const isUser = msg.sender_type === 'user';
+
+            const time = msg.timestamp ?
+                new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) :
+                '';
+
+            const messageHtml = `
+                <div class="chat-message ${isUser ? 'user' : 'coach'}">
+                    <div class="message-sender">${isUser ? 'You' : 'Coach'}</div>
+                    <div class="message-content">${escapeHtml(msg.content)}</div>
+                    <div class="message-time">${time}</div>
+                </div>
+            `;
+
+            messagesEl.insertAdjacentHTML('beforeend', messageHtml);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function addSystemMessage(content) {
+            const messagesEl = document.getElementById('chat-messages');
+            messagesEl.insertAdjacentHTML('beforeend', `
+                <div class="chat-message system">${escapeHtml(content)}</div>
+            `);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const content = input.value.trim();
+
+            if (!content || !chatSocket || chatSocket.readyState !== WebSocket.OPEN) return;
+
+            chatSocket.send(JSON.stringify({
+                type: 'message',
+                sender_id: currentUserId,
+                sender_type: 'user',
+                content: content
+            }));
+
+            input.value = '';
+        }
+
+        function handleChatKeypress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            } else {
+                // Send typing indicator
+                if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+                    chatSocket.send(JSON.stringify({
+                        type: 'typing',
+                        sender_id: currentUserId,
+                        sender_type: 'user',
+                        is_typing: true
+                    }));
+                }
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
