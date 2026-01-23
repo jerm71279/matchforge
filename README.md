@@ -24,6 +24,23 @@ DEMO_MODE=true uvicorn app.main:app --reload
 
 Visit http://localhost:8000/docs for API documentation.
 
+### Demo UI
+
+```bash
+# Start server on port 8001
+DEMO_MODE=true uvicorn app.main:app --port 8001 --reload
+
+# Open in browser
+open http://localhost:8001/demo
+```
+
+The demo UI includes:
+- **ATS Checker** - Upload resume (PDF/DOCX) and check compatibility
+- **Find Jobs** - Search with real API sources (The Muse works without keys)
+- **Coaching** - Book sessions and chat with coaches via WebSocket
+
+Default login: `demo@matchforge.com` / `DemoPass123`
+
 ### Full Setup
 
 ```bash
@@ -138,6 +155,105 @@ This is an MVP implementation for a class project demonstrating:
 5. Real-time WebSocket chat
 
 Financial projections and business model are theoretical for educational purposes.
+
+## Testing
+
+### Run All Tests
+
+```bash
+# Install test dependencies
+pip install pytest pytest-asyncio httpx
+
+# Run tests
+pytest tests/ -v
+
+# Run with coverage
+pytest tests/ --cov=app --cov-report=html
+```
+
+### Test Individual Components
+
+```bash
+# ATS Checker tests
+pytest tests/test_ats_checker.py -v
+
+# Job Matcher tests
+pytest tests/test_job_matcher.py -v
+
+# Feedback tracking tests
+pytest tests/test_feedback.py -v
+
+# Job Fetcher tests
+pytest tests/test_job_fetcher.py -v
+```
+
+### Manual Testing with Demo UI
+
+1. Start server: `DEMO_MODE=true uvicorn app.main:app --port 8001 --reload`
+2. Open http://localhost:8001/demo
+3. Login with demo credentials
+4. Test each feature:
+   - **ATS Tab**: Upload a resume PDF/DOCX, select ATS system, check score
+   - **Jobs Tab**: Select "The Muse" source, search for "Engineer", verify real jobs appear
+   - **Coaching Tab**: View available slots, book a session, open chat
+
+### End-to-End Journey Test
+
+```bash
+# Run the full user journey test
+python test_journey.py
+```
+
+This tests: Register → Login → Search Jobs → Save Job → ATS Check → Book Coaching
+
+## Team Setup
+
+### 1. Clone Repository
+
+```bash
+git clone https://github.com/jerm71279/matchforge.git
+cd matchforge
+```
+
+### 2. Create Virtual Environment
+
+```bash
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# or: venv\Scripts\activate  # Windows
+```
+
+### 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Run in Demo Mode
+
+```bash
+DEMO_MODE=true uvicorn app.main:app --port 8001 --reload
+```
+
+### 5. Access the Application
+
+| URL | Description |
+|-----|-------------|
+| http://localhost:8001/demo | Demo UI |
+| http://localhost:8001/docs | Swagger API Docs |
+| http://localhost:8001/redoc | ReDoc API Docs |
+
+### Optional: Real Job APIs
+
+To use real job APIs instead of demo data:
+
+1. Copy `.env.example` to `.env`
+2. Get free API keys:
+   - **The Muse**: No key needed (works immediately)
+   - **USAJobs**: https://developer.usajobs.gov/ (free)
+   - **Adzuna**: https://developer.adzuna.com/ (free tier)
+3. Add keys to `.env` file
+4. Set `DEMO_MODE=false`
 
 ## Author
 
