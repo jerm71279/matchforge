@@ -429,3 +429,80 @@ async def get_saved_searches(
         .order_by(SavedSearch.created_at.desc())
     )
     return result.scalars().all()
+
+
+@router.post(
+    "/explain-match",
+    summary="Get AI Explanation for Job Match",
+    description="""
+    Generate a natural language explanation for why a job matches (or doesn't match) a user's profile.
+
+    **Features:**
+    - Plain English explanation of match score
+    - Identifies the biggest strength
+    - Identifies the main gap (if any)
+    - Provides actionable improvement suggestion
+
+    **Supported LLM Providers:**
+    - OpenAI (GPT-4o-mini) - default
+    - Anthropic (Claude Haiku)
+    - xAI (Grok)
+
+    Cost: ~$0.0002 per explanation
+    """
+)
+async def explain_job_match(
+    job_data: dict = Body(..., description="Job posting data"),
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get AI-powered explanation for job match score.
+
+    Returns natural language explanation with:
+    - Why this job matches/doesn't match
+    - Biggest strength of the match
+    - Main gap to address
+    - Specific action item to improve
+    """
+    from app.services.llm_explainer import explain_match
+
+    # Get user profile
+    result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
+    profile = result.scalar_one_or_none()
+
+    if not profile:
+        profile = UserProfile(user_id=user_id)
+
+    # Build user profile dict
+    user_profile = {
+        "skills": profile.skills or [],
+        "years_experience": profile.years_experience or 0,
+        "salary_min": profile.salary_min or 0,
+        "salary_max": profile.salary_max or 0,
+        "preferred_locations": profile.preferred_locations or [],
+        "remote_preference": profile.remote_preference or "any",
+        "target_titles": profile.target_titles or [],
+    }
+
+    # Compute match scores
+    matcher = JobMatcher()
+    match_scores = matcher.compute_match_score(user_profile, job_data)
+
+    # Generate explanation
+    try:
+        explanation = explain_match(user_profile, job_data, match_scores)
+        return {
+            "match_scores": match_scores,
+            **explanation
+        }
+    except Exception as e:
+        # Return scores without explanation if LLM fails
+        return {
+            "match_scores": match_scores,
+            "explanation": f"Could not generate explanation: {str(e)}",
+            "strength": "See match scores above",
+            "gap": "See match scores above",
+            "action_item": "Review the component scores for improvement areas",
+            "metadata": {"model": "error", "tokens_used": 0, "cost_usd": 0}
+        }
