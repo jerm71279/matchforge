@@ -34,13 +34,13 @@ class ATSIssue:
 class ATSChecker:
     """
     Checks resume for ATS compatibility issues.
-    Targets top 10 ATS systems covering ~51% market share (Apps Run The World 2024)
+    Targets top 10 ATS systems covering ~56% market share (Grok-verified Jan 2026)
 
     Parser Groups:
-    - Legacy-Strict: iCIMS, Taleo, SAP SuccessFactors (~20-25%)
-    - Modern-Cloud: Greenhouse, Lever, SmartRecruiters (~15-18%)
-    - HCM-Integrated: Workday, ADP, Ceridian (~12-15%)
-    - Staffing-Specific: Bullhorn (~2-3%)
+    - Legacy-Strict: iCIMS, Taleo, SAP SuccessFactors (~21-22%)
+    - Modern-Cloud: Greenhouse, Lever, SmartRecruiters (~14-15%)
+    - HCM-Integrated: Workday, ADP, Ceridian (~17-20%)
+    - Staffing-Specific: Bullhorn (~1-1.5%)
     """
 
     STANDARD_HEADERS = {
@@ -81,7 +81,7 @@ class ATSChecker:
         },
     }
 
-    # Top 10 ATS behaviors (51.1% combined market share - Verified January 2026)
+    # Top 10 ATS behaviors (~56% combined market share - Grok-verified January 2026)
     ATS_BEHAVIORS = {
         # Legacy-Strict Group (~20-25% market share)
         "icims": {
@@ -147,7 +147,7 @@ class ATSChecker:
         },
         # HCM-Integrated Group (~12-15% market share)
         "workday": {
-            "market_share": "7-8%",
+            "market_share": "12-14%",  # Grok-verified Jan 2026
             "parser_group": "hcm_integrated",
             "strict_headers": False,
             "pdf_support": "good",
@@ -179,9 +179,9 @@ class ATSChecker:
             "skills_section_critical": True,
             "tips": ["Dayforce ecosystem", "Workforce management alignment", "Clear availability"],
         },
-        # Staffing-Specific Group (~2-3% market share)
+        # Staffing-Specific Group (~1-1.5% market share)
         "bullhorn": {
-            "market_share": "2-3%",
+            "market_share": "1-1.5%",  # Grok-verified Jan 2026
             "parser_group": "staffing_specific",
             "strict_headers": False,
             "pdf_support": "good",

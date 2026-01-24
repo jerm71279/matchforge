@@ -21,11 +21,11 @@ class RateLimitConfig:
     period_seconds: int
 
 
-# Rate limits for free APIs (Verified January 2026)
+# Rate limits for free APIs (Grok-verified January 2026)
 RATE_LIMITS = {
-    "usajobs": RateLimitConfig(requests_per_period=10000, period_seconds=86400),  # 10K rows/query per day
-    "themuse": RateLimitConfig(requests_per_period=3600, period_seconds=3600),     # 3,600/hour
-    "adzuna": RateLimitConfig(requests_per_period=1500, period_seconds=3600),      # 25/min = 1,500/hour (verified)
+    "usajobs": RateLimitConfig(requests_per_period=100, period_seconds=1),         # 100 rows/page with pagination
+    "themuse": RateLimitConfig(requests_per_period=3600, period_seconds=3600),     # 3,600/hour (unverified)
+    "adzuna": RateLimitConfig(requests_per_period=100, period_seconds=86400),      # 100 req/day free tier
     "jsearch": RateLimitConfig(requests_per_period=200, period_seconds=2592000),   # 200/month free tier
     "demo": RateLimitConfig(requests_per_period=999999, period_seconds=1),         # unlimited
 }
