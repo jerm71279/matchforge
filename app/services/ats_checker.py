@@ -116,7 +116,7 @@ class ATSChecker:
         },
         # Modern-Cloud Group (~15-18% market share)
         "greenhouse": {
-            "market_share": "6-7%",
+            "market_share": "6-7%",  # Grok-verified (Gartner/Statista 2023)
             "parser_group": "modern_cloud",
             "strict_headers": False,
             "pdf_support": "good",
@@ -169,7 +169,7 @@ class ATSChecker:
             "tips": ["SMB/mid-market focus", "Compliance-friendly format", "Clear dates and titles"],
         },
         "ceridian": {
-            "market_share": "2-3%",
+            "market_share": "2-3%",  # Grok-verified (Gartner 2023)
             "parser_group": "hcm_integrated",
             "strict_headers": False,
             "pdf_support": "good",
