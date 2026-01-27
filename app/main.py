@@ -51,7 +51,7 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup():
     """Initialize database on startup."""
-    if not settings.DEMO_MODE:
+    if not settings.DEMO_MODE and not settings.SKIP_DB:
         await init_db()
 
 
@@ -63,7 +63,8 @@ async def health_check():
         "status": "healthy",
         "app": settings.APP_NAME,
         "version": settings.APP_VERSION,
-        "demo_mode": settings.DEMO_MODE
+        "demo_mode": settings.DEMO_MODE,
+        "skip_db": settings.SKIP_DB
     }
 
 

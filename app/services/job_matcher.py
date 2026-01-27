@@ -16,7 +16,9 @@ def get_model():
     global _model
     if _model is None:
         from sentence_transformers import SentenceTransformer
-        _model = SentenceTransformer('all-MiniLM-L6-v2')
+        # Upgraded from all-MiniLM-L6-v2 (384 dim) to all-mpnet-base-v2 (768 dim)
+        # ~5% better accuracy on semantic similarity benchmarks
+        _model = SentenceTransformer('all-mpnet-base-v2')
     return _model
 
 

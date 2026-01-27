@@ -24,6 +24,7 @@ from app.schemas.job import (
 from app.services.job_fetcher import JobFetcher
 from app.services.job_matcher import JobMatcher
 from app.services.ats_checker import ATSChecker
+from app.core.config import settings
 
 
 def extract_text_from_pdf(file_content: bytes) -> str:
@@ -95,23 +96,35 @@ async def search_jobs(
 
     Jobs are fetched from multiple sources and ranked by match score.
     """
-    # Get user profile
-    result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
-    profile = result.scalar_one_or_none()
+    # Get user profile (mock mode or database)
+    if settings.DEMO_MODE or settings.SKIP_DB:
+        from app.api.auth import _demo_profiles, _get_default_profile
+        profile_dict = _demo_profiles.get(user_id, _get_default_profile(user_id))
+        user_profile = {
+            "skills": profile_dict.get("skills") or [],
+            "years_experience": profile_dict.get("years_experience"),
+            "salary_min": search.salary_min or profile_dict.get("salary_min"),
+            "salary_max": profile_dict.get("salary_max"),
+            "preferred_locations": profile_dict.get("preferred_locations") or [],
+            "remote_preference": "remote" if search.remote_only else profile_dict.get("remote_preference", "any"),
+            "target_titles": profile_dict.get("target_titles") or [],
+        }
+    else:
+        result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
+        profile = result.scalar_one_or_none()
 
-    if not profile:
-        profile = UserProfile(user_id=user_id)
+        if not profile:
+            profile = UserProfile(user_id=user_id)
 
-    # Build user profile dict for matching
-    user_profile = {
-        "skills": profile.skills or [],
-        "years_experience": profile.years_experience,
-        "salary_min": search.salary_min or profile.salary_min,
-        "salary_max": profile.salary_max,
-        "preferred_locations": profile.preferred_locations or [],
-        "remote_preference": "remote" if search.remote_only else profile.remote_preference,
-        "target_titles": profile.target_titles or [],
-    }
+        user_profile = {
+            "skills": profile.skills or [],
+            "years_experience": profile.years_experience,
+            "salary_min": search.salary_min or profile.salary_min,
+            "salary_max": profile.salary_max,
+            "preferred_locations": profile.preferred_locations or [],
+            "remote_preference": "remote" if search.remote_only else profile.remote_preference,
+            "target_titles": profile.target_titles or [],
+        }
 
     # Fetch jobs
     fetcher = JobFetcher()
@@ -395,6 +408,115 @@ async def upload_resume_for_ats_check(
     )
 
 
+@router.post(
+    "/parse-resume",
+    summary="Parse Resume and Extract Profile Data",
+    description="""
+    Upload a resume file and automatically extract profile data using AI.
+
+    **Features:**
+    - Extracts skills, experience, certifications from resume text
+    - Uses GPT-4o-mini or Claude Haiku for intelligent extraction
+    - Falls back to keyword extraction if no API keys configured
+    - Optionally auto-updates your profile with extracted data
+
+    **Extracted Fields:**
+    - Skills (technical and soft)
+    - Years of experience
+    - Current job title
+    - Suggested target titles
+    - Certifications
+    - Career level
+
+    **Cost:** ~$0.0002 per parse with LLM
+    """
+)
+async def parse_resume_for_profile(
+    file: UploadFile = File(..., description="Resume file (PDF or DOCX)"),
+    auto_update_profile: bool = Form(False, description="Automatically update profile with extracted data"),
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Parse resume and extract profile data.
+
+    Returns extracted profile fields. Optionally updates user profile.
+    """
+    from app.services.llm_resume_parser import parse_resume_with_llm
+
+    # Validate file type
+    filename = file.filename.lower()
+    if not (filename.endswith('.pdf') or filename.endswith('.docx')):
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file format. Please upload PDF or DOCX."
+        )
+
+    # Read file content
+    content = await file.read()
+
+    # Extract text based on file type
+    if filename.endswith('.pdf'):
+        resume_text = extract_text_from_pdf(content)
+    else:
+        resume_text = extract_text_from_docx(content)
+
+    if not resume_text or len(resume_text) < 50:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not extract sufficient text from resume. Please check the file."
+        )
+
+    # Parse with LLM
+    extracted = parse_resume_with_llm(resume_text)
+
+    # Auto-update profile if requested
+    if auto_update_profile and (settings.DEMO_MODE or settings.SKIP_DB):
+        from app.api.auth import _demo_profiles, _get_default_profile, _calculate_mock_profile_strength
+
+        profile = _demo_profiles.get(user_id, _get_default_profile(user_id))
+
+        # Update with extracted data (only non-empty fields)
+        if extracted.get("skills"):
+            profile["skills"] = extracted["skills"]
+        if extracted.get("years_experience"):
+            profile["years_experience"] = extracted["years_experience"]
+        if extracted.get("current_title"):
+            profile["current_title"] = extracted["current_title"]
+        if extracted.get("target_titles"):
+            profile["target_titles"] = extracted["target_titles"]
+        if extracted.get("certifications"):
+            profile["certifications"] = extracted["certifications"]
+        if extracted.get("locations"):
+            profile["preferred_locations"] = extracted["locations"]
+
+        # Estimate salary if career level is provided
+        salary_estimates = {
+            "junior": (50000, 80000),
+            "mid": (80000, 120000),
+            "senior": (120000, 180000),
+            "lead": (150000, 220000),
+            "executive": (200000, 350000)
+        }
+        if extracted.get("career_level") and extracted["career_level"] in salary_estimates:
+            est = salary_estimates[extracted["career_level"]]
+            if not profile.get("salary_min"):
+                profile["salary_min"] = est[0]
+            if not profile.get("salary_max"):
+                profile["salary_max"] = est[1]
+
+        profile["profile_strength"] = _calculate_mock_profile_strength(profile)
+        _demo_profiles[user_id] = profile
+
+        extracted["profile_updated"] = True
+        extracted["new_profile_strength"] = profile["profile_strength"]
+
+    return {
+        "extracted": extracted,
+        "resume_length": len(resume_text),
+        "metadata": extracted.get("_metadata", {})
+    }
+
+
 @router.post("/saved-searches", response_model=SavedSearchResponse)
 async def create_saved_search(
     search: SavedSearchCreate,
@@ -506,3 +628,129 @@ async def explain_job_match(
             "action_item": "Review the component scores for improvement areas",
             "metadata": {"model": "error", "tokens_used": 0, "cost_usd": 0}
         }
+
+
+@router.post(
+    "/skill-gaps",
+    summary="Analyze Skill Gaps",
+    description="""
+    Analyze skill gaps between your profile and target jobs.
+
+    **Features:**
+    - Compares your skills against job requirements
+    - Identifies high-demand skills you're missing
+    - Provides learning recommendations with resources
+    - Estimates potential match score improvement
+
+    **How it works:**
+    1. Searches for jobs matching your criteria
+    2. Extracts required skills from job postings
+    3. Compares against your profile skills
+    4. Ranks gaps by demand frequency
+    5. Generates personalized learning recommendations
+
+    **Cost:** Free (keyword extraction) or ~$0.0003 (with LLM recommendations)
+    """
+)
+async def analyze_skill_gaps(
+    keywords: str = Body(..., embed=True, description="Job search keywords"),
+    location: Optional[str] = Body(None, embed=True, description="Preferred location"),
+    top_n: int = Body(5, embed=True, description="Number of top gaps to return"),
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Analyze skill gaps based on target job requirements.
+
+    Returns skill gaps, recommendations, and potential improvement.
+    """
+    from app.services.skill_gap_analyzer import analyze_skill_gaps as analyze
+
+    # Get user profile (mock mode or database)
+    if settings.DEMO_MODE or settings.SKIP_DB:
+        from app.api.auth import _demo_profiles, _get_default_profile
+        profile_dict = _demo_profiles.get(user_id, _get_default_profile(user_id))
+        user_profile = {
+            "skills": profile_dict.get("skills") or [],
+            "years_experience": profile_dict.get("years_experience"),
+            "target_titles": profile_dict.get("target_titles") or [],
+        }
+    else:
+        result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
+        profile = result.scalar_one_or_none()
+        if not profile:
+            profile = UserProfile(user_id=user_id)
+        user_profile = {
+            "skills": profile.skills or [],
+            "years_experience": profile.years_experience,
+            "target_titles": profile.target_titles or [],
+        }
+
+    # Fetch jobs for analysis
+    fetcher = JobFetcher()
+    jobs = await fetcher.fetch_jobs(
+        keywords=keywords,
+        location=location,
+        sources=["themuse", "demo"]  # Use reliable sources
+    )
+
+    if not jobs:
+        return {
+            "skill_gaps": [],
+            "message": "No jobs found for analysis. Try different keywords."
+        }
+
+    # Analyze gaps
+    analysis = analyze(user_profile, jobs, top_n=top_n)
+
+    return {
+        "jobs_analyzed": len(jobs),
+        "user_skills_count": len(user_profile.get("skills", [])),
+        **analysis
+    }
+
+
+@router.post(
+    "/scrape-career-page",
+    summary="Scrape Company Career Page",
+    description="""
+    Scrape job listings directly from a company's career page.
+
+    **Features:**
+    - Direct access to company job postings
+    - No API key required (free)
+    - Fresher data than aggregators
+    - Works with most standard career pages
+
+    **Example URLs:**
+    - https://careers.google.com/jobs
+    - https://www.apple.com/careers/us/
+    - https://amazon.jobs/en/
+
+    **Note:** Some sites may block automated requests. Results vary by site structure.
+    """
+)
+async def scrape_career_page(
+    career_url: str = Body(..., embed=True, description="URL to company careers page"),
+    keywords: Optional[str] = Body(None, embed=True, description="Filter by keywords"),
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Scrape jobs from a company career page.
+
+    Returns list of jobs found on the page, matched against user profile.
+    """
+    fetcher = JobFetcher()
+    jobs = await fetcher.scrape_career_page(career_url, keywords)
+
+    if not jobs:
+        return {
+            "jobs": [],
+            "total": 0,
+            "message": "No jobs found. The site may block scraping or have non-standard structure."
+        }
+
+    return {
+        "jobs": jobs,
+        "total": len(jobs),
+        "source_url": career_url
+    }

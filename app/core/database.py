@@ -12,11 +12,11 @@ from app.core.config import settings
 # Base class for models (always needed for model definitions)
 Base = declarative_base()
 
-# Only create real database connection if not in demo mode
+# Only create real database connection if not in demo mode and not skipping DB
 engine = None
 async_session_maker = None
 
-if not settings.DEMO_MODE:
+if not settings.DEMO_MODE and not settings.SKIP_DB:
     from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
     engine = create_async_engine(
@@ -66,9 +66,9 @@ class MockSession:
 async def get_db() -> AsyncGenerator:
     """
     Dependency that provides database session.
-    In demo mode, provides a mock session.
+    In demo mode or when DB is skipped, provides a mock session.
     """
-    if settings.DEMO_MODE:
+    if settings.DEMO_MODE or settings.SKIP_DB:
         yield MockSession()
         return
 
@@ -84,8 +84,8 @@ async def get_db() -> AsyncGenerator:
 
 
 async def init_db():
-    """Initialize database tables (skipped in demo mode)."""
-    if settings.DEMO_MODE or engine is None:
+    """Initialize database tables (skipped in demo mode or when DB is skipped)."""
+    if settings.DEMO_MODE or settings.SKIP_DB or engine is None:
         return
 
     async with engine.begin() as conn:

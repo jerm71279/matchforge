@@ -27,6 +27,8 @@ RATE_LIMITS = {
     "themuse": RateLimitConfig(requests_per_period=3600, period_seconds=3600),     # 3,600/hour (unverified)
     "adzuna": RateLimitConfig(requests_per_period=100, period_seconds=86400),      # 100 req/day free tier
     "jsearch": RateLimitConfig(requests_per_period=200, period_seconds=2592000),   # 200/month free tier
+    "jobspy": RateLimitConfig(requests_per_period=50, period_seconds=3600),        # Self-imposed to avoid blocks
+    "career_page": RateLimitConfig(requests_per_period=100, period_seconds=3600),  # Polite scraping
     "demo": RateLimitConfig(requests_per_period=999999, period_seconds=1),         # unlimited
 }
 
@@ -107,7 +109,7 @@ class JobFetcher:
         if settings.DEMO_MODE:
             return await self._fetch_demo_jobs(keywords, location)
 
-        sources = sources or ["usajobs", "themuse", "adzuna"]
+        sources = sources or ["jobspy", "usajobs", "themuse", "adzuna"]
         cache_key = f"jobs:{keywords}:{location}"
 
         # Check cache first
@@ -145,12 +147,16 @@ class JobFetcher:
         location: Optional[str]
     ) -> list[dict]:
         """Fetch from a specific API source."""
-        if source == "usajobs":
+        if source == "jobspy":
+            return await self._fetch_jobspy(keywords, location)
+        elif source == "usajobs":
             return await self._fetch_usajobs(keywords, location)
         elif source == "themuse":
             return await self._fetch_themuse(keywords, location)
         elif source == "adzuna":
             return await self._fetch_adzuna(keywords, location)
+        elif source == "career_page":
+            return []  # Requires explicit company URL
         elif source == "demo":
             return await self._fetch_demo_jobs(keywords, location)
         return []
@@ -316,6 +322,188 @@ class JobFetcher:
             })
 
         return jobs
+
+    async def _fetch_jobspy(self, keywords: str, location: Optional[str]) -> list[dict]:
+        """
+        JobSpy - Open source multi-platform scraper (FREE)
+        Scrapes Indeed, ZipRecruiter, Glassdoor concurrently
+        https://github.com/speedyapply/JobSpy
+
+        Note: LinkedIn excluded due to aggressive rate limiting
+        """
+        try:
+            from jobspy import scrape_jobs
+            import pandas as pd
+
+            # Run in thread pool since jobspy is synchronous
+            import asyncio
+            loop = asyncio.get_event_loop()
+
+            def scrape():
+                return scrape_jobs(
+                    site_name=["indeed", "zip_recruiter", "glassdoor"],
+                    search_term=keywords,
+                    location=location or "USA",
+                    results_wanted=50,
+                    hours_old=72,  # Last 3 days
+                    country_indeed="USA",
+                )
+
+            df = await loop.run_in_executor(None, scrape)
+
+            if df is None or df.empty:
+                return []
+
+            jobs = []
+            for _, row in df.iterrows():
+                # Parse salary if available
+                salary_min = None
+                salary_max = None
+                if pd.notna(row.get('min_amount')):
+                    salary_min = int(row['min_amount'])
+                if pd.notna(row.get('max_amount')):
+                    salary_max = int(row['max_amount'])
+
+                # Extract skills from description (basic extraction)
+                description = str(row.get('description', '')) if pd.notna(row.get('description')) else ''
+
+                jobs.append({
+                    "id": f"jobspy_{row.get('site', 'unknown')}_{hash(str(row.get('job_url', '')))}",
+                    "source": f"jobspy_{row.get('site', 'unknown')}",
+                    "source_id": str(row.get('id', '')),
+                    "title": row.get('title', ''),
+                    "company": row.get('company', ''),
+                    "location": row.get('location', ''),
+                    "salary_min": salary_min,
+                    "salary_max": salary_max,
+                    "description": description[:5000],  # Limit description length
+                    "source_url": row.get('job_url', ''),
+                    "posted_date": str(row.get('date_posted', '')) if pd.notna(row.get('date_posted')) else None,
+                    "is_remote": row.get('is_remote', False) if pd.notna(row.get('is_remote')) else False,
+                    "required_skills": [],
+                    "min_experience": None,
+                    "max_experience": None,
+                })
+
+            return jobs
+
+        except ImportError:
+            print("JobSpy not installed. Run: pip install python-jobspy")
+            return []
+        except Exception as e:
+            print(f"JobSpy error: {e}")
+            return []
+
+    async def scrape_career_page(self, company_url: str, keywords: str = None) -> list[dict]:
+        """
+        Scrape jobs from a company's career page (FREE)
+        Uses BeautifulSoup for basic HTML parsing
+
+        Args:
+            company_url: URL to the company's careers/jobs page
+            keywords: Optional filter keywords
+
+        Returns:
+            List of job dicts
+        """
+        try:
+            from bs4 import BeautifulSoup
+            import re
+
+            async with aiohttp.ClientSession() as session:
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
+                async with session.get(company_url, headers=headers, timeout=30) as response:
+                    if response.status != 200:
+                        return []
+                    html = await response.text()
+
+            soup = BeautifulSoup(html, 'lxml')
+            jobs = []
+
+            # Common career page patterns
+            job_patterns = [
+                # Look for job listing containers
+                soup.find_all('div', class_=re.compile(r'job|position|opening|career|vacancy', re.I)),
+                soup.find_all('li', class_=re.compile(r'job|position|opening', re.I)),
+                soup.find_all('article', class_=re.compile(r'job|position', re.I)),
+                # Look for links with job-related text
+                soup.find_all('a', href=re.compile(r'/jobs/|/careers/|/positions/', re.I)),
+            ]
+
+            seen_titles = set()
+
+            for pattern_results in job_patterns:
+                for element in pattern_results[:50]:  # Limit to 50 per pattern
+                    # Try to extract job title
+                    title_elem = (
+                        element.find(['h1', 'h2', 'h3', 'h4']) or
+                        element.find(class_=re.compile(r'title|name', re.I)) or
+                        element
+                    )
+                    title = title_elem.get_text(strip=True) if title_elem else None
+
+                    if not title or len(title) < 5 or len(title) > 200:
+                        continue
+
+                    # Dedupe by title
+                    if title.lower() in seen_titles:
+                        continue
+                    seen_titles.add(title.lower())
+
+                    # Filter by keywords if provided
+                    if keywords and keywords.lower() not in title.lower():
+                        continue
+
+                    # Try to find location
+                    location_elem = element.find(class_=re.compile(r'location|city|place', re.I))
+                    location = location_elem.get_text(strip=True) if location_elem else None
+
+                    # Try to find link
+                    link = None
+                    if element.name == 'a':
+                        link = element.get('href', '')
+                    else:
+                        link_elem = element.find('a')
+                        if link_elem:
+                            link = link_elem.get('href', '')
+
+                    # Make absolute URL
+                    if link and not link.startswith('http'):
+                        from urllib.parse import urljoin
+                        link = urljoin(company_url, link)
+
+                    # Extract company name from URL
+                    from urllib.parse import urlparse
+                    company = urlparse(company_url).netloc.replace('www.', '').split('.')[0].title()
+
+                    jobs.append({
+                        "id": f"career_{company.lower()}_{hash(title)}",
+                        "source": "career_page",
+                        "source_id": str(hash(title)),
+                        "title": title,
+                        "company": company,
+                        "location": location,
+                        "salary_min": None,
+                        "salary_max": None,
+                        "description": "",
+                        "source_url": link or company_url,
+                        "posted_date": None,
+                        "is_remote": "remote" in title.lower() if title else False,
+                        "required_skills": [],
+                        "min_experience": None,
+                        "max_experience": None,
+                    })
+
+            return jobs[:50]  # Limit results
+
+        except ImportError:
+            print("BeautifulSoup not installed. Run: pip install beautifulsoup4 lxml")
+            return []
+        except Exception as e:
+            print(f"Career page scrape error: {e}")
+            return []
 
     async def _fetch_demo_jobs(self, keywords: str, location: Optional[str]) -> list[dict]:
         """Fetch from demo dataset"""

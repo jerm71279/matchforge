@@ -204,6 +204,53 @@
             gap: 10px;
             justify-content: flex-end;
         }
+        .skill-fit-panel {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .skill-fit-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .skill-fit-score {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        .skill-fit-score.high { color: #00e676; }
+        .skill-fit-score.medium { color: #ffc107; }
+        .skill-fit-score.low { color: #ff5252; }
+        .skill-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .skill-have {
+            background: rgba(0,200,83,0.2);
+            color: #00e676;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+        .skill-missing {
+            background: rgba(255,82,82,0.2);
+            color: #ff5252;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+        .skill-section-label {
+            font-size: 0.75rem;
+            color: #888;
+            text-transform: uppercase;
+            margin-top: 10px;
+            margin-bottom: 5px;
+        }
         .remote-badge {
             background: rgba(0,200,83,0.2);
             color: #00e676;
@@ -429,6 +476,70 @@
             font-style: italic;
             padding: 10px;
         }
+        .chat-topics {
+            padding: 10px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .topic-chip {
+            background: rgba(123,44,191,0.2);
+            border: 1px solid rgba(123,44,191,0.4);
+            color: #c084fc;
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .topic-chip:hover {
+            background: rgba(123,44,191,0.3);
+            border-color: rgba(123,44,191,0.6);
+        }
+        .ai-suggestion {
+            align-self: flex-start;
+            max-width: 85%;
+            background: linear-gradient(135deg, rgba(123,44,191,0.2), rgba(0,212,255,0.2));
+            border: 1px solid rgba(123,44,191,0.3);
+            border-radius: 12px;
+            padding: 12px 15px;
+        }
+        .ai-suggestion-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: #c084fc;
+            margin-bottom: 8px;
+        }
+        .ai-suggestion-content {
+            color: #e0e0e0;
+            line-height: 1.5;
+        }
+        .ai-suggestion-footer {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .ai-suggestion-footer button {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #aaa;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+        .ai-suggestion-footer button:hover {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+        }
+        .ai-suggestion-footer button.use-btn {
+            background: rgba(0,212,255,0.2);
+            border-color: rgba(0,212,255,0.4);
+            color: #00d4ff;
+        }
         .chat-input-area {
             padding: 15px 20px;
             border-top: 1px solid rgba(255,255,255,0.1);
@@ -441,6 +552,12 @@
         .chat-input-area .btn {
             width: auto;
             padding: 12px 20px;
+        }
+        .btn-ai {
+            background: linear-gradient(90deg, #7b2cbf, #c084fc);
+        }
+        .btn-ai:hover {
+            box-shadow: 0 4px 20px rgba(123,44,191,0.3);
         }
     </style>
 </head>
@@ -468,9 +585,103 @@
         <div id="main-app" class="hidden">
             <!-- Navigation Tabs -->
             <div class="nav-tabs">
+                <div class="nav-tab" onclick="showTab('profile')">My Profile</div>
                 <div class="nav-tab active" onclick="showTab('ats')">ATS Checker</div>
                 <div class="nav-tab" onclick="showTab('jobs')">Find Jobs</div>
                 <div class="nav-tab" onclick="showTab('coaching')">Coaching</div>
+            </div>
+
+            <!-- Profile Tab -->
+            <div id="tab-profile" class="hidden">
+                <div class="card">
+                    <h2>Your Job Matching Profile</h2>
+                    <p style="color: #888; margin-bottom: 20px;">Complete your profile to get better job matches. The more you fill in, the more accurate your match scores will be.</p>
+
+                    <div class="meta-info" style="margin-bottom: 30px;">
+                        <div class="meta-item">
+                            <div class="meta-label">Profile Strength</div>
+                            <div class="meta-value" id="profile-strength">0%</div>
+                        </div>
+                    </div>
+
+                    <!-- Auto-fill from Resume -->
+                    <div style="background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.3); border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+                        <h3 style="margin-bottom: 10px; font-size: 1rem; color: #00d4ff;">Auto-fill from Resume</h3>
+                        <p style="color: #888; font-size: 0.9rem; margin-bottom: 15px;">Upload your resume and we'll extract your skills, experience, and more automatically.</p>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input type="file" id="profile-resume-file" accept=".pdf,.docx" style="flex: 1;">
+                            <button class="btn btn-small" onclick="parseResumeForProfile()">Extract & Fill</button>
+                        </div>
+                        <div id="parse-status" style="margin-top: 10px; font-size: 0.85rem; color: #888;"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Your Skills (comma-separated)</label>
+                        <input type="text" id="profile-skills" placeholder="Python, AWS, Docker, Kubernetes, SQL, etc.">
+                        <small style="color: #666; font-size: 0.8rem;">Enter technical and soft skills relevant to your target roles</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Years of Experience</label>
+                        <select id="profile-experience">
+                            <option value="">Select...</option>
+                            <option value="0">Entry Level (0-1 years)</option>
+                            <option value="2">Junior (2-3 years)</option>
+                            <option value="4">Mid-Level (4-6 years)</option>
+                            <option value="7">Senior (7-10 years)</option>
+                            <option value="11">Staff/Principal (11-15 years)</option>
+                            <option value="16">Executive (16+ years)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Current Job Title</label>
+                        <input type="text" id="profile-current-title" placeholder="Software Engineer, Product Manager, etc.">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Target Job Titles (comma-separated)</label>
+                        <input type="text" id="profile-target-titles" placeholder="Senior Software Engineer, Tech Lead, etc.">
+                    </div>
+
+                    <div style="display: flex; gap: 15px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label>Minimum Salary ($)</label>
+                            <input type="number" id="profile-salary-min" placeholder="80000">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label>Maximum Salary ($)</label>
+                            <input type="number" id="profile-salary-max" placeholder="150000">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Preferred Locations (comma-separated)</label>
+                        <input type="text" id="profile-locations" placeholder="San Francisco, New York, Austin, Remote">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Remote Preference</label>
+                        <select id="profile-remote">
+                            <option value="any">Any (No Preference)</option>
+                            <option value="remote">Remote Only</option>
+                            <option value="hybrid">Hybrid</option>
+                            <option value="onsite">On-site Only</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Certifications (comma-separated)</label>
+                        <input type="text" id="profile-certifications" placeholder="AWS Solutions Architect, PMP, CISSP, etc.">
+                    </div>
+
+                    <div class="btn-row">
+                        <button class="btn" onclick="saveProfile()">Save Profile</button>
+                        <button class="btn btn-secondary" onclick="showTab('jobs')">Find Matching Jobs</button>
+                    </div>
+
+                    <div id="profile-save-msg" class="success-msg hidden" style="margin-top: 20px;">Profile saved successfully!</div>
+                </div>
             </div>
 
             <!-- ATS Checker Tab -->
@@ -545,10 +756,11 @@
                     <div class="source-selector">
                         <label>Job Source:</label>
                         <select id="job-sources">
-                            <option value="demo">Demo Jobs (50 samples)</option>
-                            <option value="themuse">The Muse (Tech/Startups - No API key needed)</option>
+                            <option value="themuse">The Muse - Real Jobs (Recommended)</option>
+                            <option value="jobspy">Indeed/ZipRecruiter/Glassdoor (May be slow)</option>
                             <option value="usajobs">USAJobs (Government - Requires API key)</option>
                             <option value="adzuna">Adzuna (Global - Requires API key)</option>
+                            <option value="demo">Demo Jobs (50 fake samples)</option>
                             <option value="all">All Sources</option>
                         </select>
                     </div>
@@ -582,11 +794,43 @@
                         <span class="results-count" id="jobs-count">0 jobs found</span>
                     </div>
                     <div id="jobs-list"></div>
+
+                    <!-- Skill Gap Analysis Section -->
+                    <div class="card" style="margin-top: 20px; border: 1px solid rgba(123,44,191,0.3);">
+                        <h3 style="color: #7b2cbf; margin-bottom: 15px;">Skill Gap Analysis</h3>
+                        <p style="color: #888; font-size: 0.9rem; margin-bottom: 15px;">
+                            See which skills you're missing for these jobs and get learning recommendations.
+                        </p>
+                        <button class="btn btn-secondary" onclick="analyzeSkillGaps()">Analyze My Skill Gaps</button>
+                        <div id="skill-gap-loading" class="loading hidden" style="margin-top: 15px;">
+                            <div class="spinner"></div>
+                            <p>Analyzing skill gaps...</p>
+                        </div>
+                        <div id="skill-gap-results" class="hidden" style="margin-top: 20px;"></div>
+                    </div>
                 </div>
             </div>
 
             <!-- Coaching Tab -->
             <div id="tab-coaching" class="hidden">
+                <!-- AI Quick Help Card -->
+                <div class="card" style="margin-bottom: 20px; border: 1px solid rgba(123,44,191,0.3);">
+                    <h2 style="color: #c084fc;">AI Career Coach</h2>
+                    <p style="color: #888; font-size: 0.9rem; margin-bottom: 15px;">
+                        Get instant career advice powered by AI. For more in-depth guidance, book a session with a human coach below.
+                    </p>
+                    <div id="ai-quick-topics" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 15px;"></div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="ai-quick-input" placeholder="Ask a career question..." style="flex: 1;">
+                        <button class="btn btn-ai" onclick="askQuickAI()">Ask AI</button>
+                    </div>
+                    <div id="ai-quick-loading" class="loading hidden" style="margin-top: 15px;">
+                        <div class="spinner"></div>
+                        <p>AI is thinking...</p>
+                    </div>
+                    <div id="ai-quick-response" class="hidden" style="margin-top: 15px;"></div>
+                </div>
+
                 <div class="coach-grid">
                     <!-- Book Session Card -->
                     <div class="card">
@@ -636,10 +880,16 @@
                     </div>
                     <button class="chat-close" onclick="closeChat()">&times;</button>
                 </div>
+                <div id="chat-topics" class="chat-topics hidden"></div>
                 <div class="chat-messages" id="chat-messages"></div>
                 <div class="typing-indicator hidden" id="typing-indicator">Coach is typing...</div>
+                <div id="ai-loading" class="loading hidden" style="padding: 10px;">
+                    <div class="spinner" style="width: 24px; height: 24px;"></div>
+                    <p style="font-size: 0.85rem;">AI is thinking...</p>
+                </div>
                 <div class="chat-input-area">
-                    <input type="text" id="chat-input" placeholder="Type a message..." onkeypress="handleChatKeypress(event)">
+                    <input type="text" id="chat-input" placeholder="Type a message or ask AI for help..." onkeypress="handleChatKeypress(event)">
+                    <button class="btn btn-ai btn-small" onclick="askAI()" title="Get AI coaching suggestion">AI Help</button>
                     <button class="btn" onclick="sendMessage()">Send</button>
                 </div>
             </div>
@@ -669,14 +919,19 @@
             document.querySelector(`.nav-tab[onclick="showTab('${tab}')"]`).classList.add('active');
 
             // Show/hide tabs
+            document.getElementById('tab-profile').classList.toggle('hidden', tab !== 'profile');
             document.getElementById('tab-ats').classList.toggle('hidden', tab !== 'ats');
             document.getElementById('tab-jobs').classList.toggle('hidden', tab !== 'jobs');
             document.getElementById('tab-coaching').classList.toggle('hidden', tab !== 'coaching');
 
-            // Load coaching data when tab is shown
+            // Load data when tabs are shown
+            if (tab === 'profile') {
+                loadProfile();
+            }
             if (tab === 'coaching') {
                 loadAvailableSlots();
                 loadMySessions();
+                loadQuickAITopics();
             }
         }
 
@@ -822,7 +1077,7 @@
             // Determine which sources to use
             let sources;
             if (sourceSelect === 'all') {
-                sources = ['demo', 'themuse', 'usajobs', 'adzuna'];
+                sources = ['themuse', 'usajobs', 'adzuna', 'jobspy'];
             } else {
                 sources = [sourceSelect];
             }
@@ -873,8 +1128,15 @@
                     ? `$${(job.salary_min/1000).toFixed(0)}k - $${(job.salary_max/1000).toFixed(0)}k`
                     : '';
 
+                // Store job data for skill fit check
+                const jobDataAttr = encodeURIComponent(JSON.stringify({
+                    id: job.id,
+                    title: job.title,
+                    required_skills: job.required_skills || []
+                }));
+
                 return `
-                    <div class="job-card">
+                    <div class="job-card" id="job-card-${job.id}">
                         <div class="job-header">
                             <div class="job-title">${job.title}</div>
                             <div class="job-match">${score}% Match</div>
@@ -889,9 +1151,11 @@
                             ${skills.map(s => `<span class="skill-tag">${s}</span>`).join('')}
                         </div>
                         <div class="job-actions">
+                            <button class="btn btn-secondary btn-small" onclick="checkSkillFit('${job.id}', '${jobDataAttr}')">Check My Fit</button>
                             <button class="btn btn-secondary btn-small" onclick="saveJob('${job.id}')">Save</button>
                             <button class="btn btn-small" onclick="applyJob('${job.id}', '${job.source_url || ''}')">Apply Now</button>
                         </div>
+                        <div id="skill-fit-${job.id}" class="skill-fit-panel hidden"></div>
                     </div>
                 `;
             }).join('');
@@ -917,6 +1181,285 @@
             } else {
                 alert('Application link not available for demo jobs. In production, this would redirect to the job posting.');
             }
+        }
+
+        function checkSkillFit(jobId, jobDataEncoded) {
+            const panel = document.getElementById(`skill-fit-${jobId}`);
+
+            // Toggle if already visible
+            if (!panel.classList.contains('hidden')) {
+                panel.classList.add('hidden');
+                return;
+            }
+
+            const jobData = JSON.parse(decodeURIComponent(jobDataEncoded));
+            const jobSkills = (jobData.required_skills || []).map(s => s.toLowerCase());
+
+            // Get user skills from profile form
+            const userSkillsRaw = document.getElementById('profile-skills').value;
+            const userSkills = userSkillsRaw
+                .split(',')
+                .map(s => s.trim().toLowerCase())
+                .filter(s => s);
+
+            if (userSkills.length === 0) {
+                panel.innerHTML = `
+                    <div style="text-align: center; padding: 10px;">
+                        <p style="color: #ffc107; margin-bottom: 10px;">No skills in your profile yet!</p>
+                        <button class="btn btn-small" onclick="showTab('profile')">Set Up Profile</button>
+                    </div>
+                `;
+                panel.classList.remove('hidden');
+                return;
+            }
+
+            if (jobSkills.length === 0) {
+                panel.innerHTML = `
+                    <div style="text-align: center; padding: 10px; color: #888;">
+                        <p>This job listing doesn't specify required skills.</p>
+                    </div>
+                `;
+                panel.classList.remove('hidden');
+                return;
+            }
+
+            // Compare skills (with fuzzy matching)
+            const skillsYouHave = [];
+            const skillsYouMissing = [];
+
+            jobSkills.forEach(jobSkill => {
+                const hasSkill = userSkills.some(userSkill =>
+                    skillsMatchFuzzy(jobSkill, userSkill)
+                );
+                if (hasSkill) {
+                    skillsYouHave.push(jobSkill);
+                } else {
+                    skillsYouMissing.push(jobSkill);
+                }
+            });
+
+            const fitPercent = jobSkills.length > 0
+                ? Math.round((skillsYouHave.length / jobSkills.length) * 100)
+                : 0;
+
+            const scoreClass = fitPercent >= 70 ? 'high' : fitPercent >= 40 ? 'medium' : 'low';
+            const fitMessage = fitPercent >= 70 ? 'Strong fit!' :
+                               fitPercent >= 40 ? 'Partial fit - consider upskilling' :
+                               'Skill gap - may need more experience';
+
+            panel.innerHTML = `
+                <div class="skill-fit-header">
+                    <div>
+                        <span class="skill-fit-score ${scoreClass}">${fitPercent}% Skill Match</span>
+                        <span style="color: #888; font-size: 0.85rem; margin-left: 10px;">${fitMessage}</span>
+                    </div>
+                    <button class="btn btn-secondary btn-small" onclick="document.getElementById('skill-fit-${jobId}').classList.add('hidden')">Close</button>
+                </div>
+
+                ${skillsYouHave.length > 0 ? `
+                    <div class="skill-section-label">Skills You Have (${skillsYouHave.length}/${jobSkills.length})</div>
+                    <div class="skill-list">
+                        ${skillsYouHave.map(s => `<span class="skill-have">✓ ${capitalizeSkill(s)}</span>`).join('')}
+                    </div>
+                ` : ''}
+
+                ${skillsYouMissing.length > 0 ? `
+                    <div class="skill-section-label">Skills to Develop (${skillsYouMissing.length})</div>
+                    <div class="skill-list">
+                        ${skillsYouMissing.map(s => `<span class="skill-missing">✗ ${capitalizeSkill(s)}</span>`).join('')}
+                    </div>
+                ` : ''}
+
+                ${skillsYouMissing.length > 0 ? `
+                    <div style="margin-top: 15px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+                        <p style="color: #888; font-size: 0.85rem;">
+                            Missing ${skillsYouMissing.length} skill${skillsYouMissing.length > 1 ? 's' : ''} for this role.
+                            <a href="#" onclick="showTab('jobs'); setTimeout(analyzeSkillGaps, 100); return false;" style="color: #00d4ff;">
+                                Get learning recommendations →
+                            </a>
+                        </p>
+                    </div>
+                ` : `
+                    <div style="margin-top: 15px; padding: 10px; background: rgba(0,200,83,0.1); border-radius: 6px;">
+                        <p style="color: #00e676; font-size: 0.9rem;">
+                            You have all the listed skills! Consider applying.
+                        </p>
+                    </div>
+                `}
+            `;
+
+            panel.classList.remove('hidden');
+        }
+
+        function skillsMatchFuzzy(skill1, skill2) {
+            const s1 = skill1.toLowerCase().trim();
+            const s2 = skill2.toLowerCase().trim();
+
+            // Exact match
+            if (s1 === s2) return true;
+
+            // One contains the other
+            if (s1.includes(s2) || s2.includes(s1)) return true;
+
+            // Common variations
+            const variations = {
+                'javascript': ['js', 'node.js', 'nodejs', 'node'],
+                'typescript': ['ts'],
+                'python': ['py'],
+                'kubernetes': ['k8s'],
+                'postgresql': ['postgres', 'psql', 'pgsql'],
+                'amazon web services': ['aws'],
+                'google cloud': ['gcp', 'google cloud platform'],
+                'microsoft azure': ['azure'],
+                'react': ['reactjs', 'react.js'],
+                'vue': ['vuejs', 'vue.js'],
+                'angular': ['angularjs'],
+                'machine learning': ['ml'],
+                'artificial intelligence': ['ai'],
+                'continuous integration': ['ci', 'ci/cd'],
+                'continuous deployment': ['cd', 'ci/cd'],
+            };
+
+            for (const [canonical, aliases] of Object.entries(variations)) {
+                const allForms = [canonical, ...aliases];
+                if (allForms.includes(s1) && allForms.includes(s2)) return true;
+                if (allForms.some(f => f === s1) && allForms.some(f => f === s2)) return true;
+            }
+
+            return false;
+        }
+
+        function capitalizeSkill(skill) {
+            // Special cases for acronyms
+            const acronyms = ['aws', 'gcp', 'sql', 'css', 'html', 'api', 'ci/cd', 'ai', 'ml', 'ui', 'ux'];
+            if (acronyms.includes(skill.toLowerCase())) {
+                return skill.toUpperCase();
+            }
+            return skill.split(' ').map(word =>
+                word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ');
+        }
+
+        async function analyzeSkillGaps() {
+            const keywords = document.getElementById('job-keywords').value || 'software engineer';
+            const location = document.getElementById('job-location').value;
+
+            document.getElementById('skill-gap-loading').classList.remove('hidden');
+            document.getElementById('skill-gap-results').classList.add('hidden');
+
+            try {
+                const res = await fetch(`${API_BASE}/jobs/skill-gaps`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        keywords: keywords,
+                        location: location || null,
+                        top_n: 5
+                    })
+                });
+
+                document.getElementById('skill-gap-loading').classList.add('hidden');
+
+                if (res.ok) {
+                    const data = await res.json();
+                    showSkillGapResults(data);
+                } else {
+                    const err = await res.json();
+                    document.getElementById('skill-gap-results').innerHTML =
+                        `<p style="color: #ff5252;">Error: ${err.detail || 'Analysis failed'}</p>`;
+                    document.getElementById('skill-gap-results').classList.remove('hidden');
+                }
+            } catch (e) {
+                document.getElementById('skill-gap-loading').classList.add('hidden');
+                document.getElementById('skill-gap-results').innerHTML =
+                    `<p style="color: #ff5252;">Connection error: ${e.message}</p>`;
+                document.getElementById('skill-gap-results').classList.remove('hidden');
+            }
+        }
+
+        function showSkillGapResults(data) {
+            const container = document.getElementById('skill-gap-results');
+
+            if (!data.skill_gaps || data.skill_gaps.length === 0) {
+                container.innerHTML = `
+                    <div style="background: rgba(0,200,83,0.1); padding: 15px; border-radius: 8px;">
+                        <strong style="color: #00e676;">Great news!</strong>
+                        <p style="color: #888; margin-top: 5px;">Your skills align well with these jobs. Consider deepening your expertise in your existing skills.</p>
+                    </div>
+                `;
+                container.classList.remove('hidden');
+                return;
+            }
+
+            let html = `
+                <div style="margin-bottom: 15px;">
+                    <p style="color: #888; font-size: 0.9rem;">
+                        Analyzed <strong>${data.jobs_analyzed}</strong> jobs.
+                        You have <strong>${data.user_skills_count}</strong> skills.
+                        Potential improvement: <strong style="color: #00e676;">${data.potential_score_improvement}</strong>
+                    </p>
+                </div>
+                <h4 style="margin-bottom: 10px; color: #fff;">Top Skill Gaps</h4>
+            `;
+
+            data.skill_gaps.forEach((gap, i) => {
+                const priority = gap.demand_score > 50 ? 'high' : 'medium';
+                const priorityColor = priority === 'high' ? '#ff5252' : '#ffc107';
+
+                html += `
+                    <div class="issue" style="border-color: ${priorityColor}; margin-bottom: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong style="color: #fff;">${gap.skill}</strong>
+                            <span style="font-size: 0.8rem; color: ${priorityColor};">
+                                ${gap.demand_score}% demand • ${gap.jobs_requiring} jobs
+                            </span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (data.recommendations && data.recommendations.length > 0) {
+                html += `<h4 style="margin: 20px 0 10px; color: #fff;">Learning Recommendations</h4>`;
+
+                data.recommendations.forEach(rec => {
+                    html += `
+                        <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <strong style="color: #00d4ff;">${rec.skill}</strong>
+                                <span style="font-size: 0.75rem; padding: 2px 8px; border-radius: 4px;
+                                    background: ${rec.priority === 'high' ? 'rgba(255,82,82,0.2)' : 'rgba(255,193,7,0.2)'};
+                                    color: ${rec.priority === 'high' ? '#ff5252' : '#ffc107'};">
+                                    ${rec.priority} priority
+                                </span>
+                            </div>
+                            <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 5px;">
+                                <strong>Resource:</strong> ${rec.resource}
+                            </p>
+                            <p style="color: #888; font-size: 0.85rem; margin-bottom: 5px;">
+                                <strong>Time:</strong> ${rec.time_estimate}
+                                ${rec.certification ? ` • <strong>Cert:</strong> ${rec.certification}` : ''}
+                            </p>
+                            <p style="color: #666; font-size: 0.8rem; font-style: italic;">
+                                ${rec.resume_tip}
+                            </p>
+                        </div>
+                    `;
+                });
+            }
+
+            if (data.analysis_summary) {
+                html += `
+                    <div style="background: rgba(0,212,255,0.1); padding: 15px; border-radius: 8px; margin-top: 15px;">
+                        <p style="color: #00d4ff; font-size: 0.9rem;">${data.analysis_summary}</p>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+            container.classList.remove('hidden');
         }
 
         // ==================== COACHING FUNCTIONS ====================
@@ -1131,16 +1674,291 @@
             }
         }
 
+        // ==================== AI QUICK HELP FUNCTIONS ====================
+
+        async function loadQuickAITopics() {
+            try {
+                const res = await fetch(`${API_BASE}/coaching/topics`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const container = document.getElementById('ai-quick-topics');
+                    if (data.topics && data.topics.length > 0) {
+                        container.innerHTML = data.topics.slice(0, 6).map(t =>
+                            `<span class="topic-chip" onclick="setQuickAITopic('${escapeHtml(t.prompt)}')">${t.topic}</span>`
+                        ).join('');
+                    }
+                }
+            } catch (e) {
+                console.log('Could not load quick topics:', e);
+            }
+        }
+
+        function setQuickAITopic(prompt) {
+            document.getElementById('ai-quick-input').value = prompt;
+            askQuickAI();
+        }
+
+        async function askQuickAI() {
+            const input = document.getElementById('ai-quick-input');
+            const question = input.value.trim();
+
+            if (!question) {
+                alert('Please enter a question');
+                return;
+            }
+
+            document.getElementById('ai-quick-loading').classList.remove('hidden');
+            document.getElementById('ai-quick-response').classList.add('hidden');
+
+            try {
+                const res = await fetch(`${API_BASE}/coaching/ai-assist`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        question: question,
+                        conversation_history: []
+                    })
+                });
+
+                document.getElementById('ai-quick-loading').classList.add('hidden');
+
+                if (res.ok) {
+                    const data = await res.json();
+                    showQuickAIResponse(question, data);
+                } else {
+                    const err = await res.json();
+                    document.getElementById('ai-quick-response').innerHTML =
+                        `<p style="color: #ff5252;">Error: ${err.detail || 'Could not get response'}</p>`;
+                    document.getElementById('ai-quick-response').classList.remove('hidden');
+                }
+            } catch (e) {
+                document.getElementById('ai-quick-loading').classList.add('hidden');
+                document.getElementById('ai-quick-response').innerHTML =
+                    `<p style="color: #ff5252;">Connection error: ${e.message}</p>`;
+                document.getElementById('ai-quick-response').classList.remove('hidden');
+            }
+        }
+
+        function showQuickAIResponse(question, data) {
+            const container = document.getElementById('ai-quick-response');
+            const confidenceText = data.confidence === 'high' ? 'High confidence' :
+                                   data.confidence === 'needs_review' ? 'Coach-verified recommended' : 'General guidance';
+            const confidenceColor = data.confidence === 'high' ? '#00e676' :
+                                    data.confidence === 'needs_review' ? '#ffc107' : '#888';
+
+            container.innerHTML = `
+                <div class="ai-suggestion" style="max-width: 100%;">
+                    <div class="ai-suggestion-header">
+                        <span style="color: ${confidenceColor};">&#9679;</span>
+                        AI Career Coach • ${confidenceText}
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+                        <strong style="color: #888; font-size: 0.85rem;">Your question:</strong>
+                        <p style="color: #fff; margin-top: 4px;">${escapeHtml(question)}</p>
+                    </div>
+                    <div class="ai-suggestion-content">${escapeHtml(data.draft_response)}</div>
+                    ${data.suggested_followup ? `
+                        <div style="margin-top: 15px; padding: 10px; background: rgba(0,212,255,0.1); border-radius: 8px;">
+                            <strong style="color: #00d4ff; font-size: 0.85rem;">Want to dig deeper?</strong>
+                            <p style="color: #aaa; font-size: 0.9rem; margin-top: 4px;">${escapeHtml(data.suggested_followup)}</p>
+                            <button class="btn btn-secondary btn-small" style="margin-top: 10px;"
+                                onclick="document.getElementById('ai-quick-input').value='${escapeHtml(data.suggested_followup)}'; askQuickAI();">
+                                Ask This
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+                <div style="margin-top: 15px; text-align: center;">
+                    <p style="color: #888; font-size: 0.85rem; margin-bottom: 10px;">
+                        For personalized guidance, book a session with a human coach
+                    </p>
+                </div>
+            `;
+            container.classList.remove('hidden');
+        }
+
         // ==================== CHAT FUNCTIONS ====================
+
+        let chatConversationHistory = [];
+        let currentAISuggestion = null;
 
         function openChat(sessionId, coachId) {
             currentSessionId = sessionId;
+            chatConversationHistory = [];
             document.getElementById('chat-modal').classList.remove('hidden');
             document.getElementById('chat-title').textContent = `Chat with ${coachId}`;
             document.getElementById('chat-messages').innerHTML = '';
             document.getElementById('chat-input').value = '';
 
             connectWebSocket(sessionId);
+            loadCoachingTopics();
+        }
+
+        async function loadCoachingTopics() {
+            try {
+                const res = await fetch(`${API_BASE}/coaching/topics`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    renderTopicChips(data.topics);
+                }
+            } catch (e) {
+                console.log('Could not load topics:', e);
+            }
+        }
+
+        function renderTopicChips(topics) {
+            const container = document.getElementById('chat-topics');
+            if (!topics || topics.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            const html = topics.map(t =>
+                `<span class="topic-chip" onclick="selectTopic('${escapeHtml(t.prompt)}')">${t.topic}</span>`
+            ).join('');
+
+            container.innerHTML = html;
+            container.classList.remove('hidden');
+        }
+
+        function selectTopic(prompt) {
+            document.getElementById('chat-input').value = prompt;
+            document.getElementById('chat-topics').classList.add('hidden');
+            askAI();
+        }
+
+        async function askAI() {
+            const input = document.getElementById('chat-input');
+            const question = input.value.trim();
+
+            if (!question) {
+                alert('Please enter a question to ask the AI');
+                return;
+            }
+
+            document.getElementById('ai-loading').classList.remove('hidden');
+
+            try {
+                const res = await fetch(`${API_BASE}/coaching/ai-assist`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        question: question,
+                        conversation_history: chatConversationHistory
+                    })
+                });
+
+                document.getElementById('ai-loading').classList.add('hidden');
+
+                if (res.ok) {
+                    const data = await res.json();
+                    currentAISuggestion = data;
+                    showAISuggestion(question, data);
+
+                    // Hide topics after first question
+                    document.getElementById('chat-topics').classList.add('hidden');
+                } else {
+                    const err = await res.json();
+                    alert('AI Error: ' + (err.detail || 'Could not get suggestion'));
+                }
+            } catch (e) {
+                document.getElementById('ai-loading').classList.add('hidden');
+                alert('Connection error: ' + e.message);
+            }
+        }
+
+        function showAISuggestion(question, data) {
+            const messagesEl = document.getElementById('chat-messages');
+
+            // First show the user's question
+            const userMsg = {
+                type: 'message',
+                sender_type: 'user',
+                content: question,
+                timestamp: new Date().toISOString()
+            };
+            addChatMessage(userMsg);
+            chatConversationHistory.push(userMsg);
+
+            // Then show AI suggestion
+            const confidenceText = data.confidence === 'high' ? 'High confidence' :
+                                   data.confidence === 'needs_review' ? 'Needs coach review' : 'Template response';
+            const confidenceColor = data.confidence === 'high' ? '#00e676' :
+                                    data.confidence === 'needs_review' ? '#ffc107' : '#888';
+
+            const suggestionHtml = `
+                <div class="ai-suggestion" id="current-ai-suggestion">
+                    <div class="ai-suggestion-header">
+                        <span style="color: ${confidenceColor};">&#9679;</span>
+                        AI Career Coach • ${confidenceText}
+                    </div>
+                    <div class="ai-suggestion-content">${escapeHtml(data.draft_response)}</div>
+                    ${data.suggested_followup ? `
+                        <div style="margin-top: 10px; font-size: 0.85rem; color: #888;">
+                            <strong>Suggested follow-up:</strong> ${escapeHtml(data.suggested_followup)}
+                        </div>
+                    ` : ''}
+                    <div class="ai-suggestion-footer">
+                        <button onclick="askFollowup()">Ask More</button>
+                        <button class="use-btn" onclick="useAISuggestion()">Send as Message</button>
+                    </div>
+                </div>
+            `;
+
+            messagesEl.insertAdjacentHTML('beforeend', suggestionHtml);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+
+            // Clear input
+            document.getElementById('chat-input').value = '';
+        }
+
+        function useAISuggestion() {
+            if (!currentAISuggestion) return;
+
+            // Remove the suggestion card
+            const suggestionEl = document.getElementById('current-ai-suggestion');
+            if (suggestionEl) suggestionEl.remove();
+
+            // Send as a coach message
+            const coachMsg = {
+                type: 'message',
+                sender_type: 'coach',
+                content: currentAISuggestion.draft_response,
+                timestamp: new Date().toISOString()
+            };
+            addChatMessage(coachMsg);
+            chatConversationHistory.push(coachMsg);
+
+            // Also send via websocket if connected
+            if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+                chatSocket.send(JSON.stringify({
+                    type: 'message',
+                    sender_id: 'ai_coach',
+                    sender_type: 'coach',
+                    content: currentAISuggestion.draft_response
+                }));
+            }
+
+            currentAISuggestion = null;
+        }
+
+        function askFollowup() {
+            if (currentAISuggestion && currentAISuggestion.suggested_followup) {
+                document.getElementById('chat-input').value = currentAISuggestion.suggested_followup;
+            }
+            document.getElementById('chat-input').focus();
         }
 
         function closeChat() {
@@ -1202,6 +2020,12 @@
 
                 case 'message':
                     addChatMessage(data);
+                    // Track in history for AI context
+                    chatConversationHistory.push({
+                        sender_type: data.sender_type,
+                        content: data.content,
+                        timestamp: data.timestamp
+                    });
                     break;
 
                 case 'typing':
@@ -1250,15 +2074,26 @@
             const input = document.getElementById('chat-input');
             const content = input.value.trim();
 
-            if (!content || !chatSocket || chatSocket.readyState !== WebSocket.OPEN) return;
+            if (!content) return;
 
-            chatSocket.send(JSON.stringify({
+            // Add to conversation history for AI context
+            const msg = {
                 type: 'message',
                 sender_id: currentUserId,
                 sender_type: 'user',
-                content: content
-            }));
+                content: content,
+                timestamp: new Date().toISOString()
+            };
 
+            // If websocket is connected, send via websocket
+            if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+                chatSocket.send(JSON.stringify(msg));
+            } else {
+                // Otherwise just show locally (for AI-only chat)
+                addChatMessage(msg);
+            }
+
+            chatConversationHistory.push(msg);
             input.value = '';
         }
 
@@ -1282,6 +2117,163 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        // ==================== PROFILE FUNCTIONS ====================
+
+        async function loadProfile() {
+            try {
+                const res = await fetch(`${API_BASE}/auth/profile`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                if (res.ok) {
+                    const profile = await res.json();
+                    populateProfileForm(profile);
+                }
+            } catch (e) {
+                console.error('Could not load profile:', e);
+            }
+        }
+
+        function populateProfileForm(profile) {
+            document.getElementById('profile-skills').value = (profile.skills || []).join(', ');
+            document.getElementById('profile-experience').value = profile.years_experience || '';
+            document.getElementById('profile-current-title').value = profile.current_title || '';
+            document.getElementById('profile-target-titles').value = (profile.target_titles || []).join(', ');
+            document.getElementById('profile-salary-min').value = profile.salary_min || '';
+            document.getElementById('profile-salary-max').value = profile.salary_max || '';
+            document.getElementById('profile-locations').value = (profile.preferred_locations || []).join(', ');
+            document.getElementById('profile-remote').value = profile.remote_preference || 'any';
+            document.getElementById('profile-certifications').value = (profile.certifications || []).join(', ');
+            document.getElementById('profile-strength').textContent = (profile.profile_strength || 0) + '%';
+        }
+
+        async function parseResumeForProfile() {
+            const fileInput = document.getElementById('profile-resume-file');
+            const statusEl = document.getElementById('parse-status');
+
+            if (!fileInput.files[0]) {
+                statusEl.textContent = 'Please select a resume file first.';
+                statusEl.style.color = '#ff5252';
+                return;
+            }
+
+            statusEl.textContent = 'Parsing resume...';
+            statusEl.style.color = '#ffc107';
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('auto_update_profile', 'true');
+
+            try {
+                const res = await fetch(`${API_BASE}/jobs/parse-resume`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` },
+                    body: formData
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const extracted = data.extracted;
+
+                    // Populate form fields
+                    if (extracted.skills && extracted.skills.length > 0) {
+                        document.getElementById('profile-skills').value = extracted.skills.join(', ');
+                    }
+                    if (extracted.years_experience) {
+                        // Find closest option
+                        const select = document.getElementById('profile-experience');
+                        const years = extracted.years_experience;
+                        if (years <= 1) select.value = '0';
+                        else if (years <= 3) select.value = '2';
+                        else if (years <= 6) select.value = '4';
+                        else if (years <= 10) select.value = '7';
+                        else if (years <= 15) select.value = '11';
+                        else select.value = '16';
+                    }
+                    if (extracted.current_title) {
+                        document.getElementById('profile-current-title').value = extracted.current_title;
+                    }
+                    if (extracted.target_titles && extracted.target_titles.length > 0) {
+                        document.getElementById('profile-target-titles').value = extracted.target_titles.join(', ');
+                    }
+                    if (extracted.certifications && extracted.certifications.length > 0) {
+                        document.getElementById('profile-certifications').value = extracted.certifications.join(', ');
+                    }
+                    if (extracted.locations && extracted.locations.length > 0) {
+                        document.getElementById('profile-locations').value = extracted.locations.join(', ');
+                    }
+
+                    // Update profile strength if available
+                    if (extracted.new_profile_strength) {
+                        document.getElementById('profile-strength').textContent = extracted.new_profile_strength + '%';
+                    }
+
+                    const modelUsed = data.metadata?.model || 'keyword extraction';
+                    statusEl.textContent = `Extracted ${extracted.skills?.length || 0} skills using ${modelUsed}. Review and save!`;
+                    statusEl.style.color = '#00e676';
+                } else {
+                    const err = await res.json();
+                    statusEl.textContent = 'Error: ' + (err.detail || 'Parse failed');
+                    statusEl.style.color = '#ff5252';
+                }
+            } catch (e) {
+                statusEl.textContent = 'Connection error: ' + e.message;
+                statusEl.style.color = '#ff5252';
+            }
+        }
+
+        async function saveProfile() {
+            const skills = document.getElementById('profile-skills').value
+                .split(',').map(s => s.trim()).filter(s => s);
+            const experience = document.getElementById('profile-experience').value;
+            const currentTitle = document.getElementById('profile-current-title').value.trim();
+            const targetTitles = document.getElementById('profile-target-titles').value
+                .split(',').map(s => s.trim()).filter(s => s);
+            const salaryMin = parseInt(document.getElementById('profile-salary-min').value) || null;
+            const salaryMax = parseInt(document.getElementById('profile-salary-max').value) || null;
+            const locations = document.getElementById('profile-locations').value
+                .split(',').map(s => s.trim()).filter(s => s);
+            const remote = document.getElementById('profile-remote').value;
+            const certifications = document.getElementById('profile-certifications').value
+                .split(',').map(s => s.trim()).filter(s => s);
+
+            const profileData = {
+                skills: skills,
+                years_experience: experience ? parseInt(experience) : null,
+                current_title: currentTitle || null,
+                target_titles: targetTitles,
+                salary_min: salaryMin,
+                salary_max: salaryMax,
+                preferred_locations: locations,
+                remote_preference: remote,
+                certifications: certifications
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/auth/profile`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(profileData)
+                });
+
+                if (res.ok) {
+                    const updated = await res.json();
+                    document.getElementById('profile-strength').textContent = (updated.profile_strength || 0) + '%';
+                    const msgEl = document.getElementById('profile-save-msg');
+                    msgEl.classList.remove('hidden');
+                    setTimeout(() => msgEl.classList.add('hidden'), 3000);
+                } else {
+                    const err = await res.json();
+                    alert('Error saving profile: ' + (err.detail || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('Connection error: ' + e.message);
+            }
         }
     </script>
 </body>

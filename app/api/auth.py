@@ -22,10 +22,15 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 # Demo mode in-memory storage with pre-seeded demo user
 _demo_users = {}
+_demo_profiles = {}
+
+def _use_mock_auth():
+    """Check if we should use mock auth (demo mode or skipping DB)."""
+    return settings.DEMO_MODE or settings.SKIP_DB
 
 def _init_demo_users():
     """Pre-seed demo user for easy testing."""
-    if settings.DEMO_MODE and "demo@matchforge.com" not in _demo_users:
+    if _use_mock_auth() and "demo@matchforge.com" not in _demo_users:
         _demo_users["demo@matchforge.com"] = {
             "id": "demo-user-001",
             "email": "demo@matchforge.com",
@@ -45,7 +50,7 @@ _init_demo_users()
 async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     """Register a new user account."""
     # Demo mode: use in-memory storage
-    if settings.DEMO_MODE:
+    if _use_mock_auth():
         if user_data.email in _demo_users:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -104,7 +109,7 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
 async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
     """Login and get access token."""
     # Demo mode: check in-memory storage
-    if settings.DEMO_MODE:
+    if _use_mock_auth():
         user = _demo_users.get(credentials.email)
 
         if not user or not verify_password(credentials.password, user["hashed_password"]):
@@ -169,6 +174,11 @@ async def get_profile(
     db: AsyncSession = Depends(get_db)
 ):
     """Get user profile for job matching."""
+    # Demo/mock mode
+    if _use_mock_auth():
+        profile = _demo_profiles.get(user_id, _get_default_profile(user_id))
+        return UserProfileResponse(**profile)
+
     result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
     profile = result.scalar_one_or_none()
 
@@ -185,6 +195,17 @@ async def update_profile(
     db: AsyncSession = Depends(get_db)
 ):
     """Update user profile."""
+    # Demo/mock mode
+    if _use_mock_auth():
+        profile = _demo_profiles.get(user_id, _get_default_profile(user_id))
+        update_data = profile_data.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            if field in profile:
+                profile[field] = value
+        profile["profile_strength"] = _calculate_mock_profile_strength(profile)
+        _demo_profiles[user_id] = profile
+        return UserProfileResponse(**profile)
+
     result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
     profile = result.scalar_one_or_none()
 
@@ -203,6 +224,45 @@ async def update_profile(
     await db.flush()
 
     return profile
+
+
+def _get_default_profile(user_id: str) -> dict:
+    """Return default empty profile for mock mode."""
+    return {
+        "user_id": user_id,
+        "skills": [],
+        "years_experience": None,
+        "current_title": None,
+        "target_titles": [],
+        "salary_min": None,
+        "salary_max": None,
+        "preferred_locations": [],
+        "remote_preference": "any",
+        "certifications": [],
+        "profile_strength": 0,
+        "resume_updated_at": None,
+    }
+
+
+def _calculate_mock_profile_strength(profile: dict) -> int:
+    """Calculate profile completeness for mock mode."""
+    score = 0
+    skills = profile.get("skills", [])
+    if skills and len(skills) >= 5:
+        score += 25
+    elif skills:
+        score += 10
+    if profile.get("years_experience"):
+        score += 15
+    if profile.get("target_titles"):
+        score += 15
+    if profile.get("salary_min") or profile.get("salary_max"):
+        score += 10
+    if profile.get("preferred_locations"):
+        score += 10
+    if profile.get("certifications"):
+        score += 10
+    return min(100, score)
 
 
 def calculate_profile_strength(profile: UserProfile) -> int:

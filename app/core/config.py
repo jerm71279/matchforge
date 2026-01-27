@@ -36,7 +36,10 @@ class Settings(BaseSettings):
     ADZUNA_APP_KEY: Optional[str] = None
 
     # Demo mode (use mock data instead of real APIs)
-    DEMO_MODE: bool = True
+    DEMO_MODE: bool = False
+
+    # Skip database connection (allows real job APIs without PostgreSQL)
+    SKIP_DB: bool = True
 
     class Config:
         env_file = ".env"

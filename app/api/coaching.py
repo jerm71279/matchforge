@@ -10,10 +10,27 @@ from typing import Optional
 
 from app.core.database import get_db
 from app.core.security import get_current_user_id
+from app.core.config import settings
 from app.models.user import User
 from app.models.feedback import CoachSession
 from app.schemas.feedback import CoachSessionCreate, CoachSessionResponse, CoachSessionFeedback
 from app.services.chat import chat_manager, coach_scheduler
+from app.services.coach_assistant import draft_coach_response, get_coaching_topics
+from pydantic import BaseModel
+
+
+class CoachAIAssistRequest(BaseModel):
+    """Request for AI-assisted coaching response."""
+    question: str
+    conversation_history: list[dict] = []
+
+
+class CoachAIAssistResponse(BaseModel):
+    """Response from AI coaching assistant."""
+    draft_response: str
+    confidence: str
+    suggested_followup: Optional[str] = None
+    topics: Optional[list[dict]] = None
 
 router = APIRouter(prefix="/coaching", tags=["Coaching"])
 
@@ -205,6 +222,59 @@ async def rate_session(
     db.add(session)
 
     return {"success": True}
+
+
+@router.post("/ai-assist", response_model=CoachAIAssistResponse)
+async def get_ai_coaching_assist(
+    request: CoachAIAssistRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get AI-assisted response for a coaching question.
+
+    This drafts a response that human coaches can review/edit before sending.
+    Also useful for users who want quick guidance outside of sessions.
+    """
+    # Get user profile for context
+    user_profile = {}
+    if settings.DEMO_MODE or settings.SKIP_DB:
+        # Use mock profile from auth module
+        from app.api.auth import _demo_profiles, _get_default_profile
+        user_profile = _demo_profiles.get(user_id, _get_default_profile(user_id))
+    else:
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        if user:
+            user_profile = {
+                "skills": user.skills or [],
+                "years_experience": user.years_experience,
+                "target_titles": user.target_titles or [],
+                "career_level": user.career_level
+            }
+
+    # Get AI draft response
+    response = await draft_coach_response(
+        user_question=request.question,
+        user_profile=user_profile,
+        conversation_history=request.conversation_history
+    )
+
+    # Include coaching topics for first-time users
+    topics = get_coaching_topics() if not request.conversation_history else None
+
+    return CoachAIAssistResponse(
+        draft_response=response["draft_response"],
+        confidence=response["confidence"],
+        suggested_followup=response.get("suggested_followup"),
+        topics=topics
+    )
+
+
+@router.get("/topics")
+async def get_topics():
+    """Get suggested coaching topics for UI."""
+    return {"topics": get_coaching_topics()}
 
 
 @router.websocket("/chat/{session_id}")

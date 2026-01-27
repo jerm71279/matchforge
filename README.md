@@ -5,10 +5,79 @@ AI-Powered Job Matching Platform with Human Coaching
 ## Features
 
 - **AI-Powered Matching**: Multi-factor job matching using skills, experience, salary, and location (vector similarity with sentence-transformers)
+- **Dual Skill Gap Analysis**: Both single-job fit checking AND market-wide skill demand analysis (see [Key Differentiator](#key-differentiator-integrated-skill-gap-analysis))
 - **ATS Optimization**: Resume compatibility checking for top ATS systems (iCIMS, Taleo, Workday, Greenhouse)
+- **LLM Resume Parsing**: Auto-extract skills, experience, and certifications from uploaded resumes
+- **AI Career Coach**: Instant career advice powered by GPT-4o-mini/Claude with suggested topics
 - **Multiple Job Sources**: Aggregates from USAJobs, The Muse, and Adzuna APIs
 - **Feedback Tracking**: Tracks user interactions to validate and improve matching algorithm
 - **Human Coaching**: Real-time chat for coaching sessions
+
+---
+
+## Key Differentiator: Integrated Skill Gap Analysis
+
+**The Problem:** Job seekers don't know which skills to invest in learning. LinkedIn shows skill gaps for individual jobs, but doesn't help prioritize across the market.
+
+**MatchForge's Solution:** We provide BOTH tactical and strategic skill insights in one integrated workflow.
+
+### Competitive Comparison
+
+| Platform | Single-Job Fit | Market-Wide Gaps | Integrated in Job Search? |
+|----------|---------------|------------------|---------------------------|
+| **LinkedIn** | ✓ "You have 5/8 skills" | Partial (generic industry data) | No - separate features |
+| **Jobscan** | ✓ Resume keywords | ✗ | No |
+| **Indeed** | Basic match % | ✗ | No |
+| **Coursera** | ✗ | ✓ "Skills for X role" | No - course-first |
+| **MatchForge** | ✓ Per-job fit check | ✓ Personalized to your search | **Yes - same workflow** |
+
+### How It Works
+
+**1. Single-Job Fit (Tactical)**
+Click "Check My Fit" on any job card:
+```
+┌─────────────────────────────────────────────┐
+│ 60% Skill Match - Partial fit               │
+│                                             │
+│ Skills You Have (3/5)                       │
+│ ✓ Python  ✓ AWS  ✓ Docker                   │
+│                                             │
+│ Skills to Develop (2)                       │
+│ ✗ Kubernetes  ✗ Terraform                   │
+└─────────────────────────────────────────────┘
+```
+
+**2. Market-Wide Analysis (Strategic)**
+After searching jobs, click "Analyze My Skill Gaps":
+```
+┌─────────────────────────────────────────────┐
+│ Analyzed 25 DevOps jobs                     │
+│                                             │
+│ Top Skill Gaps by Market Demand:            │
+│ • Kubernetes - 73% of jobs (HIGH priority)  │
+│ • Terraform - 52% of jobs                   │
+│ • Docker - 48% of jobs                      │
+│                                             │
+│ Learning Recommendations:                   │
+│ → Start with Kubernetes (highest ROI)       │
+│ → Resource: KodeKloud CKA Course            │
+│ → Time: 4-6 weeks                           │
+│ → Potential improvement: +15% match scores  │
+└─────────────────────────────────────────────┘
+```
+
+### Why This Matters
+
+| Use Case | LinkedIn Approach | MatchForge Approach |
+|----------|-------------------|---------------------|
+| Job A wants: Python, AWS, Terraform | "Missing Terraform" | — |
+| Job B wants: Python, Docker, K8s | "Missing Docker, K8s" | — |
+| Job C wants: Python, AWS, Docker | "Missing Docker" | — |
+| **Insight** | 3 separate gap lists | "Docker appears in 67% of jobs - prioritize over Terraform (33%)" |
+
+**Result:** Users make strategic skill investments based on market demand, not individual job postings.
+
+---
 
 ## Quick Start
 
@@ -95,6 +164,8 @@ uvicorn app.main:app --reload
 - `POST /api/v1/jobs/{id}/save` - Save job
 - `POST /api/v1/jobs/{id}/apply` - Mark as applied
 - `POST /api/v1/jobs/ats-check` - Check ATS compatibility
+- `POST /api/v1/jobs/parse-resume` - LLM-powered resume parsing
+- `POST /api/v1/jobs/skill-gaps` - Market-wide skill gap analysis
 
 ### Feedback
 - `POST /api/v1/feedback/view` - Record job view
@@ -107,6 +178,8 @@ uvicorn app.main:app --reload
 - `GET /api/v1/coaching/slots` - Get available slots
 - `POST /api/v1/coaching/book` - Book session
 - `GET /api/v1/coaching/sessions` - Get user's sessions
+- `POST /api/v1/coaching/ai-assist` - AI career coach (instant advice)
+- `GET /api/v1/coaching/topics` - Get suggested coaching topics
 - `WS /api/v1/coaching/chat/{session_id}` - Real-time chat
 
 ## Project Structure
@@ -132,11 +205,14 @@ matchforge/
 │   │   ├── job.py          # Job schemas
 │   │   └── feedback.py     # Feedback schemas
 │   ├── services/
-│   │   ├── job_fetcher.py  # API integrations
-│   │   ├── job_matcher.py  # Matching algorithm
-│   │   ├── ats_checker.py  # ATS validation
-│   │   ├── feedback.py     # Feedback service
-│   │   └── chat.py         # Chat service
+│   │   ├── job_fetcher.py      # API integrations
+│   │   ├── job_matcher.py      # Matching algorithm
+│   │   ├── ats_checker.py      # ATS validation
+│   │   ├── feedback.py         # Feedback service
+│   │   ├── chat.py             # Chat service
+│   │   ├── llm_resume_parser.py    # LLM resume extraction
+│   │   ├── skill_gap_analyzer.py   # Skill gap analysis
+│   │   └── coach_assistant.py      # AI coaching assistant
 │   └── main.py             # FastAPI application
 ├── data/
 │   └── demo_jobs.json      # 50-job demo dataset
@@ -174,6 +250,23 @@ This is an MVP implementation for a class project demonstrating:
 3. ATS compatibility validation
 4. Feedback tracking for algorithm validation
 5. Real-time WebSocket chat
+6. **LLM integration** for resume parsing, skill analysis, and AI coaching
+
+### Business Pitch Highlights
+
+**Problem:** Job seekers waste time on unqualified applications and don't know which skills to prioritize learning.
+
+**Solution:** MatchForge provides integrated skill intelligence that existing platforms lack:
+- LinkedIn shows skill gaps per job but doesn't aggregate market demand
+- Learning platforms (Coursera, Udemy) push courses without job market context
+- MatchForge connects the dots: "Based on 50 jobs you're interested in, Docker appears in 73%—learn this first"
+
+**Competitive Moat:**
+- Integrated workflow (job search → skill gaps → learning recs in one flow)
+- Personalized to user's actual job search, not generic industry data
+- Combines human coaching with AI assistance
+
+**Revenue Model:** Freemium with Pro tier ($19/mo) for unlimited AI features and coaching sessions.
 
 Financial projections and business model are theoretical for educational purposes.
 

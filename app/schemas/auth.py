@@ -51,11 +51,15 @@ class UserProfileUpdate(BaseModel):
     """Update user profile"""
     full_name: Optional[str] = None
     phone: Optional[str] = None
+    skills: Optional[list[str]] = None
+    years_experience: Optional[int] = None
+    current_title: Optional[str] = None
     target_titles: Optional[list[str]] = None
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
     preferred_locations: Optional[list[str]] = None
     remote_preference: Optional[str] = None  # remote, hybrid, onsite, any
+    certifications: Optional[list[str]] = None
 
 
 class UserProfileResponse(BaseModel):
