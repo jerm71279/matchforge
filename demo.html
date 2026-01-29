@@ -1183,6 +1183,69 @@
             }
         }
 
+        async function quickParseResume(jobId, jobDataEncoded) {
+            const fileInput = document.getElementById(`quick-resume-${jobId}`);
+            const statusEl = document.getElementById(`quick-parse-status-${jobId}`);
+
+            if (!fileInput.files[0]) {
+                statusEl.innerHTML = '<span style="color: #ff5252;">Please select a resume file first.</span>';
+                return;
+            }
+
+            statusEl.innerHTML = '<span style="color: #ffc107;">Parsing resume...</span>';
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('auto_update_profile', 'true');
+
+            try {
+                const res = await fetch(`${API_BASE}/jobs/parse-resume`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` },
+                    body: formData
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const extracted = data.extracted;
+
+                    if (extracted.skills && extracted.skills.length > 0) {
+                        // Save skills to profile form
+                        document.getElementById('profile-skills').value = extracted.skills.join(', ');
+
+                        // Also save other extracted data
+                        if (extracted.current_title) {
+                            document.getElementById('profile-current-title').value = extracted.current_title;
+                        }
+                        if (extracted.years_experience) {
+                            const select = document.getElementById('profile-experience');
+                            const years = extracted.years_experience;
+                            if (years <= 1) select.value = '0';
+                            else if (years <= 3) select.value = '2';
+                            else if (years <= 6) select.value = '4';
+                            else if (years <= 10) select.value = '7';
+                            else if (years <= 15) select.value = '11';
+                            else select.value = '16';
+                        }
+
+                        statusEl.innerHTML = `<span style="color: #00e676;">Found ${extracted.skills.length} skills! Checking fit...</span>`;
+
+                        // Re-run skill fit check after short delay
+                        setTimeout(() => {
+                            checkSkillFit(jobId, jobDataEncoded);
+                        }, 500);
+                    } else {
+                        statusEl.innerHTML = '<span style="color: #ff5252;">No skills found in resume. Try a different file.</span>';
+                    }
+                } else {
+                    const err = await res.json();
+                    statusEl.innerHTML = `<span style="color: #ff5252;">Error: ${err.detail || 'Parse failed'}</span>`;
+                }
+            } catch (e) {
+                statusEl.innerHTML = `<span style="color: #ff5252;">Connection error: ${e.message}</span>`;
+            }
+        }
+
         function checkSkillFit(jobId, jobDataEncoded) {
             const panel = document.getElementById(`skill-fit-${jobId}`);
 
@@ -1204,9 +1267,13 @@
 
             if (userSkills.length === 0) {
                 panel.innerHTML = `
-                    <div style="text-align: center; padding: 10px;">
-                        <p style="color: #ffc107; margin-bottom: 10px;">No skills in your profile yet!</p>
-                        <button class="btn btn-small" onclick="showTab('profile')">Set Up Profile</button>
+                    <div style="text-align: center; padding: 15px;">
+                        <p style="color: #ffc107; margin-bottom: 15px;">Upload your resume to check skill fit</p>
+                        <div style="display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap;">
+                            <input type="file" id="quick-resume-${jobId}" accept=".pdf,.docx" style="max-width: 200px;">
+                            <button class="btn btn-small" onclick="quickParseResume('${jobId}', '${jobDataEncoded}')">Analyze Skills</button>
+                        </div>
+                        <div id="quick-parse-status-${jobId}" style="margin-top: 10px; font-size: 0.85rem;"></div>
                     </div>
                 `;
                 panel.classList.remove('hidden');
