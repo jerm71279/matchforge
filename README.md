@@ -13,6 +13,10 @@ AI-Powered Job Matching Platform with Human Coaching
 - **Feedback Tracking**: Tracks user interactions to validate and improve matching algorithm
 - **Human Coaching**: Real-time chat for coaching sessions
 
+## Presentation
+
+[View the MatchForge Presentation](https://docs.google.com/presentation/d/1QFRx8jMSeRhLwJdUfTNIBhR0bBflZs_t/edit?usp=sharing&ouid=109371574895324126130&rtpof=true&sd=true)
+
 ---
 
 ## Key Differentiator: Integrated Skill Gap Analysis
