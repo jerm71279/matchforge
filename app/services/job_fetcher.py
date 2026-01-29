@@ -4,6 +4,7 @@ Fetches jobs from multiple free APIs with rate limiting and caching
 """
 import asyncio
 import json
+import math
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -12,6 +13,41 @@ import aiohttp
 import redis.asyncio as redis
 
 from app.core.config import settings
+
+
+def _safe_str(value, default: str = "") -> str:
+    """Safely convert value to string, handling NaN, None, and pandas NA."""
+    if value is None:
+        return default
+    if isinstance(value, float) and math.isnan(value):
+        return default
+    if isinstance(value, str):
+        return value
+    try:
+        # Handle pandas NA
+        import pandas as pd
+        if pd.isna(value):
+            return default
+    except (ImportError, TypeError):
+        pass
+    return str(value)
+
+
+def _safe_bool(value, default: bool = False) -> bool:
+    """Safely convert value to bool, handling NaN and None."""
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, float) and math.isnan(value):
+        return default
+    try:
+        import pandas as pd
+        if pd.isna(value):
+            return default
+    except (ImportError, TypeError):
+        pass
+    return bool(value)
 
 
 @dataclass
@@ -198,20 +234,20 @@ class JobFetcher:
             remuneration = job.get("PositionRemuneration", [{}])
             salary_info = remuneration[0] if remuneration else {}
 
+            title = _safe_str(job.get("PositionTitle"))
             jobs.append({
-                "id": f"usajobs_{job.get('PositionID')}",
+                "id": f"usajobs_{_safe_str(job.get('PositionID'))}",
                 "source": "usajobs",
-                "source_id": job.get("PositionID"),
-                "title": job.get("PositionTitle"),
-                "company": job.get("OrganizationName"),
-                "location": job.get("PositionLocationDisplay"),
+                "source_id": _safe_str(job.get("PositionID")),
+                "title": title,
+                "company": _safe_str(job.get("OrganizationName")),
+                "location": _safe_str(job.get("PositionLocationDisplay")),
                 "salary_min": self._parse_salary(salary_info.get("MinimumRange")),
                 "salary_max": self._parse_salary(salary_info.get("MaximumRange")),
-                "description": job.get("UserArea", {}).get("Details", {}).get("JobSummary", ""),
-                "source_url": job.get("PositionURI"),
-                "posted_date": job.get("PublicationStartDate"),
-                "is_remote": "telework" in job.get("PositionTitle", "").lower() or
-                            "remote" in job.get("PositionTitle", "").lower(),
+                "description": _safe_str(job.get("UserArea", {}).get("Details", {}).get("JobSummary", "")),
+                "source_url": _safe_str(job.get("PositionURI")),
+                "posted_date": _safe_str(job.get("PublicationStartDate")) or None,
+                "is_remote": "telework" in title.lower() or "remote" in title.lower(),
                 "required_skills": [],
                 "min_experience": None,
                 "max_experience": None,
@@ -256,20 +292,20 @@ class JobFetcher:
             jobs.append({
                 "id": f"themuse_{item.get('id')}",
                 "source": "themuse",
-                "source_id": str(item.get("id")),
-                "title": item.get("name"),
-                "company": item.get("company", {}).get("name"),
-                "location": location_str,
+                "source_id": _safe_str(item.get("id")),
+                "title": _safe_str(item.get("name")),
+                "company": _safe_str(item.get("company", {}).get("name")),
+                "location": _safe_str(location_str),
                 "salary_min": None,  # The Muse doesn't provide salary
                 "salary_max": None,
-                "description": item.get("contents", ""),
-                "source_url": item.get("refs", {}).get("landing_page"),
-                "posted_date": item.get("publication_date"),
+                "description": _safe_str(item.get("contents", "")),
+                "source_url": _safe_str(item.get("refs", {}).get("landing_page")),
+                "posted_date": _safe_str(item.get("publication_date")) or None,
                 "is_remote": is_remote,
                 "required_skills": [],
                 "min_experience": None,
                 "max_experience": None,
-                "company_culture": item.get("company", {}).get("short_name"),
+                "company_culture": _safe_str(item.get("company", {}).get("short_name")),
             })
 
         return jobs[:50]  # Limit results
@@ -303,19 +339,20 @@ class JobFetcher:
 
         jobs = []
         for item in data.get("results", []):
+            title = _safe_str(item.get("title"))
             jobs.append({
                 "id": f"adzuna_{item.get('id')}",
                 "source": "adzuna",
-                "source_id": str(item.get("id")),
-                "title": item.get("title"),
-                "company": item.get("company", {}).get("display_name"),
-                "location": item.get("location", {}).get("display_name"),
-                "salary_min": item.get("salary_min"),
-                "salary_max": item.get("salary_max"),
-                "description": item.get("description", ""),
-                "source_url": item.get("redirect_url"),
-                "posted_date": item.get("created"),
-                "is_remote": "remote" in item.get("title", "").lower(),
+                "source_id": _safe_str(item.get("id")),
+                "title": title,
+                "company": _safe_str(item.get("company", {}).get("display_name")),
+                "location": _safe_str(item.get("location", {}).get("display_name")),
+                "salary_min": self._parse_salary(item.get("salary_min")),
+                "salary_max": self._parse_salary(item.get("salary_max")),
+                "description": _safe_str(item.get("description", "")),
+                "source_url": _safe_str(item.get("redirect_url")),
+                "posted_date": _safe_str(item.get("created")) or None,
+                "is_remote": "remote" in title.lower(),
                 "required_skills": [],
                 "min_experience": None,
                 "max_experience": None,
@@ -365,21 +402,21 @@ class JobFetcher:
                     salary_max = int(row['max_amount'])
 
                 # Extract skills from description (basic extraction)
-                description = str(row.get('description', '')) if pd.notna(row.get('description')) else ''
+                description = _safe_str(row.get('description'), '')
 
                 jobs.append({
-                    "id": f"jobspy_{row.get('site', 'unknown')}_{hash(str(row.get('job_url', '')))}",
-                    "source": f"jobspy_{row.get('site', 'unknown')}",
-                    "source_id": str(row.get('id', '')),
-                    "title": row.get('title', ''),
-                    "company": row.get('company', ''),
-                    "location": row.get('location', ''),
+                    "id": f"jobspy_{_safe_str(row.get('site'), 'unknown')}_{hash(_safe_str(row.get('job_url')))}",
+                    "source": f"jobspy_{_safe_str(row.get('site'), 'unknown')}",
+                    "source_id": _safe_str(row.get('id')),
+                    "title": _safe_str(row.get('title')),
+                    "company": _safe_str(row.get('company')),
+                    "location": _safe_str(row.get('location')),
                     "salary_min": salary_min,
                     "salary_max": salary_max,
                     "description": description[:5000],  # Limit description length
-                    "source_url": row.get('job_url', ''),
-                    "posted_date": str(row.get('date_posted', '')) if pd.notna(row.get('date_posted')) else None,
-                    "is_remote": row.get('is_remote', False) if pd.notna(row.get('is_remote')) else False,
+                    "source_url": _safe_str(row.get('job_url')),
+                    "posted_date": _safe_str(row.get('date_posted')) or None,
+                    "is_remote": _safe_bool(row.get('is_remote')),
                     "required_skills": [],
                     "min_experience": None,
                     "max_experience": None,
@@ -551,7 +588,9 @@ class JobFetcher:
         unique = []
 
         for job in jobs:
-            key = f"{job.get('title', '').lower()}_{job.get('company', '').lower()}"
+            title = _safe_str(job.get('title')).lower()
+            company = _safe_str(job.get('company')).lower()
+            key = f"{title}_{company}"
             key = "".join(c for c in key if c.isalnum())
 
             if key not in seen:

@@ -42,6 +42,22 @@ def _init_demo_users():
             "is_verified": True,
             "created_at": datetime.utcnow(),
         }
+        # Pre-seed demo profile with sample data for meaningful matching
+        _demo_profiles["demo-user-001"] = {
+            "user_id": "demo-user-001",
+            "skills": ["Python", "JavaScript", "SQL", "AWS", "Docker", "React"],
+            "years_experience": 5,
+            "current_title": "Software Engineer",
+            "target_titles": ["Senior Software Engineer", "Tech Lead", "Staff Engineer"],
+            "salary_min": 120000,
+            "salary_max": 180000,
+            "preferred_locations": ["San Francisco", "Austin", "Remote"],
+            "remote_preference": "remote",
+            "certifications": ["AWS Solutions Architect"],
+            "profile_strength": 85,
+            "resume_text": None,
+            "resume_updated_at": None,
+        }
 
 _init_demo_users()
 

@@ -11,7 +11,41 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Body, UploadFile, 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
+from datetime import datetime
 import io
+
+
+def _parse_posted_date(value):
+    """Parse posted_date from various formats (date string, datetime string, or None)."""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        # Try ISO datetime first
+        return datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except (ValueError, AttributeError):
+        pass
+    try:
+        # Try date-only format
+        return datetime.strptime(str(value), '%Y-%m-%d')
+    except (ValueError, AttributeError):
+        return None
+
+
+def _safe_string(value, default=None):
+    """Convert value to string, handling NaN, None, and other non-string types."""
+    import math
+    if value is None:
+        return default
+    if isinstance(value, float):
+        if math.isnan(value):
+            return default
+        return str(int(value)) if value == int(value) else str(value)
+    if isinstance(value, str):
+        return value if value.strip() else default
+    return str(value)
+
 
 from app.core.database import get_db
 from app.core.security import get_current_user_id
@@ -97,6 +131,7 @@ async def search_jobs(
     Jobs are fetched from multiple sources and ranked by match score.
     """
     # Get user profile (mock mode or database)
+    resume_text = None
     if settings.DEMO_MODE or settings.SKIP_DB:
         from app.api.auth import _demo_profiles, _get_default_profile
         profile_dict = _demo_profiles.get(user_id, _get_default_profile(user_id))
@@ -109,6 +144,7 @@ async def search_jobs(
             "remote_preference": "remote" if search.remote_only else profile_dict.get("remote_preference", "any"),
             "target_titles": profile_dict.get("target_titles") or [],
         }
+        resume_text = profile_dict.get("resume_text")
     else:
         result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
         profile = result.scalar_one_or_none()
@@ -125,6 +161,7 @@ async def search_jobs(
             "remote_preference": "remote" if search.remote_only else profile.remote_preference,
             "target_titles": profile.target_titles or [],
         }
+        resume_text = profile.resume_text
 
     # Fetch jobs
     fetcher = JobFetcher()
@@ -150,26 +187,26 @@ async def search_jobs(
     for job_data in page_jobs:
         # ATS suggestions based on job description
         ats_suggestions = []
-        if profile.resume_text and job_data.get("description"):
-            keywords = ats_checker.suggest_keywords(profile.resume_text, job_data["description"])
+        if resume_text and job_data.get("description"):
+            keywords = ats_checker.suggest_keywords(resume_text, job_data["description"])
             ats_suggestions = [f"Add '{k['keyword']}' keyword" for k in keywords[:3]]
 
         job_response = JobResponse(
-            id=job_data.get("id", ""),
-            source=job_data.get("source", ""),
-            source_url=job_data.get("source_url"),
-            title=job_data.get("title", ""),
-            company=job_data.get("company"),
-            location=job_data.get("location"),
-            is_remote=job_data.get("is_remote", False),
+            id=_safe_string(job_data.get("id"), ""),
+            source=_safe_string(job_data.get("source"), ""),
+            source_url=_safe_string(job_data.get("source_url")),
+            title=_safe_string(job_data.get("title"), ""),
+            company=_safe_string(job_data.get("company")),
+            location=_safe_string(job_data.get("location")),
+            is_remote=bool(job_data.get("is_remote", False)),
             salary_min=job_data.get("salary_min"),
             salary_max=job_data.get("salary_max"),
-            description=job_data.get("description"),
-            required_skills=job_data.get("required_skills", []),
-            preferred_skills=job_data.get("preferred_skills", []),
+            description=_safe_string(job_data.get("description")),
+            required_skills=job_data.get("required_skills", []) or [],
+            preferred_skills=job_data.get("preferred_skills", []) or [],
             min_experience=job_data.get("min_experience"),
             max_experience=job_data.get("max_experience"),
-            posted_date=job_data.get("posted_date"),
+            posted_date=_parse_posted_date(job_data.get("posted_date")),
             is_active=True,
         )
 
@@ -489,20 +526,30 @@ async def parse_resume_for_profile(
         if extracted.get("locations"):
             profile["preferred_locations"] = extracted["locations"]
 
-        # Estimate salary if career level is provided
-        salary_estimates = {
-            "junior": (50000, 80000),
-            "mid": (80000, 120000),
-            "senior": (120000, 180000),
-            "lead": (150000, 220000),
-            "executive": (200000, 350000)
-        }
-        if extracted.get("career_level") and extracted["career_level"] in salary_estimates:
-            est = salary_estimates[extracted["career_level"]]
-            if not profile.get("salary_min"):
-                profile["salary_min"] = est[0]
-            if not profile.get("salary_max"):
-                profile["salary_max"] = est[1]
+        # Save resume text for ATS keyword suggestions
+        profile["resume_text"] = resume_text
+
+        # Use LLM salary estimate if available, otherwise fall back to career_level lookup
+        if extracted.get("salary_estimate") and isinstance(extracted["salary_estimate"], dict):
+            if extracted["salary_estimate"].get("min"):
+                profile["salary_min"] = extracted["salary_estimate"]["min"]
+            if extracted["salary_estimate"].get("max"):
+                profile["salary_max"] = extracted["salary_estimate"]["max"]
+        elif extracted.get("career_level"):
+            # Fallback: estimate salary based on career level
+            salary_estimates = {
+                "junior": (50000, 80000),
+                "mid": (80000, 120000),
+                "senior": (120000, 180000),
+                "lead": (150000, 220000),
+                "executive": (200000, 350000)
+            }
+            if extracted["career_level"] in salary_estimates:
+                est = salary_estimates[extracted["career_level"]]
+                if not profile.get("salary_min"):
+                    profile["salary_min"] = est[0]
+                if not profile.get("salary_max"):
+                    profile["salary_max"] = est[1]
 
         profile["profile_strength"] = _calculate_mock_profile_strength(profile)
         _demo_profiles[user_id] = profile

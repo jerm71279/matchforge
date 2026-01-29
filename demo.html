@@ -2204,6 +2204,14 @@
                     if (extracted.locations && extracted.locations.length > 0) {
                         document.getElementById('profile-locations').value = extracted.locations.join(', ');
                     }
+                    if (extracted.salary_estimate) {
+                        if (extracted.salary_estimate.min) {
+                            document.getElementById('profile-salary-min').value = extracted.salary_estimate.min;
+                        }
+                        if (extracted.salary_estimate.max) {
+                            document.getElementById('profile-salary-max').value = extracted.salary_estimate.max;
+                        }
+                    }
 
                     // Update profile strength if available
                     if (extracted.new_profile_strength) {
@@ -2211,7 +2219,8 @@
                     }
 
                     const modelUsed = data.metadata?.model || 'keyword extraction';
-                    statusEl.textContent = `Extracted ${extracted.skills?.length || 0} skills using ${modelUsed}. Review and save!`;
+                    const savedMsg = extracted.profile_updated ? ' Profile auto-saved!' : ' Review and save!';
+                    statusEl.textContent = `Extracted ${extracted.skills?.length || 0} skills using ${modelUsed}.${savedMsg}`;
                     statusEl.style.color = '#00e676';
                 } else {
                     const err = await res.json();
