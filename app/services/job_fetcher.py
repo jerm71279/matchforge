@@ -50,6 +50,74 @@ def _safe_bool(value, default: bool = False) -> bool:
     return bool(value)
 
 
+def extract_skills_from_description(description: str) -> list[str]:
+    """Extract technical skills from job description text."""
+    if not description:
+        return []
+
+    text = description.lower()
+
+    # Common tech skills to look for
+    skill_patterns = [
+        # Programming languages
+        "python", "java", "javascript", "typescript", "c++", "c#", "go", "golang",
+        "rust", "ruby", "php", "swift", "kotlin", "scala", "r ", " r,",
+        # Frontend
+        "react", "angular", "vue", "vue.js", "next.js", "nextjs", "html", "css",
+        "tailwind", "bootstrap", "jquery", "webpack",
+        # Backend
+        "node.js", "nodejs", "django", "flask", "fastapi", "spring", "spring boot",
+        ".net", "express", "rails", "laravel",
+        # Cloud & DevOps
+        "aws", "amazon web services", "azure", "gcp", "google cloud",
+        "docker", "kubernetes", "k8s", "terraform", "ansible", "jenkins",
+        "ci/cd", "ci cd", "devops", "github actions", "gitlab",
+        # Databases
+        "sql", "mysql", "postgresql", "postgres", "mongodb", "redis",
+        "elasticsearch", "dynamodb", "oracle", "cassandra", "sqlite",
+        # Data & ML
+        "machine learning", "deep learning", "data science", "tensorflow",
+        "pytorch", "pandas", "numpy", "scikit-learn", "nlp", "ai",
+        "data engineering", "spark", "hadoop", "kafka", "airflow",
+        # Other tech
+        "api", "rest", "graphql", "microservices", "agile", "scrum",
+        "git", "linux", "unix", "jira", "confluence",
+    ]
+
+    found_skills = []
+    for skill in skill_patterns:
+        # Check if skill appears in text (with word boundaries)
+        if skill in text:
+            # Normalize the skill name
+            normalized = skill.strip().replace(".", "").replace(" ", "")
+            if normalized == "r":
+                normalized = "R"
+            elif normalized == "nodejs":
+                normalized = "Node.js"
+            elif normalized == "vuejs":
+                normalized = "Vue.js"
+            elif normalized == "nextjs":
+                normalized = "Next.js"
+            elif normalized == "k8s":
+                normalized = "Kubernetes"
+            elif normalized == "amazonwebservices":
+                normalized = "AWS"
+            elif normalized == "googlecloud":
+                normalized = "GCP"
+            elif normalized == "golang":
+                normalized = "Go"
+            elif normalized == "cicd" or normalized == "ci cd":
+                normalized = "CI/CD"
+            else:
+                # Capitalize first letter
+                normalized = skill.strip().title()
+
+            if normalized not in found_skills:
+                found_skills.append(normalized)
+
+    return found_skills[:15]  # Limit to 15 skills
+
+
 @dataclass
 class RateLimitConfig:
     """Rate limit configuration per API"""
@@ -289,6 +357,9 @@ class JobFetcher:
             if keywords and keywords.lower() not in title and keywords.lower() not in company:
                 continue
 
+            description = _safe_str(item.get("contents", ""))
+            extracted_skills = extract_skills_from_description(description)
+
             jobs.append({
                 "id": f"themuse_{item.get('id')}",
                 "source": "themuse",
@@ -298,11 +369,11 @@ class JobFetcher:
                 "location": _safe_str(location_str),
                 "salary_min": None,  # The Muse doesn't provide salary
                 "salary_max": None,
-                "description": _safe_str(item.get("contents", "")),
+                "description": description,
                 "source_url": _safe_str(item.get("refs", {}).get("landing_page")),
                 "posted_date": _safe_str(item.get("publication_date")) or None,
                 "is_remote": is_remote,
-                "required_skills": [],
+                "required_skills": extracted_skills,
                 "min_experience": None,
                 "max_experience": None,
                 "company_culture": _safe_str(item.get("company", {}).get("short_name")),
@@ -340,6 +411,9 @@ class JobFetcher:
         jobs = []
         for item in data.get("results", []):
             title = _safe_str(item.get("title"))
+            description = _safe_str(item.get("description", ""))
+            extracted_skills = extract_skills_from_description(description)
+
             jobs.append({
                 "id": f"adzuna_{item.get('id')}",
                 "source": "adzuna",
@@ -349,11 +423,11 @@ class JobFetcher:
                 "location": _safe_str(item.get("location", {}).get("display_name")),
                 "salary_min": self._parse_salary(item.get("salary_min")),
                 "salary_max": self._parse_salary(item.get("salary_max")),
-                "description": _safe_str(item.get("description", "")),
+                "description": description,
                 "source_url": _safe_str(item.get("redirect_url")),
                 "posted_date": _safe_str(item.get("created")) or None,
                 "is_remote": "remote" in title.lower(),
-                "required_skills": [],
+                "required_skills": extracted_skills,
                 "min_experience": None,
                 "max_experience": None,
             })
@@ -401,8 +475,9 @@ class JobFetcher:
                 if pd.notna(row.get('max_amount')):
                     salary_max = int(row['max_amount'])
 
-                # Extract skills from description (basic extraction)
+                # Extract skills from description
                 description = _safe_str(row.get('description'), '')
+                extracted_skills = extract_skills_from_description(description)
 
                 jobs.append({
                     "id": f"jobspy_{_safe_str(row.get('site'), 'unknown')}_{hash(_safe_str(row.get('job_url')))}",
@@ -417,7 +492,7 @@ class JobFetcher:
                     "source_url": _safe_str(row.get('job_url')),
                     "posted_date": _safe_str(row.get('date_posted')) or None,
                     "is_remote": _safe_bool(row.get('is_remote')),
-                    "required_skills": [],
+                    "required_skills": extracted_skills,
                     "min_experience": None,
                     "max_experience": None,
                 })
